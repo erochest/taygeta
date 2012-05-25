@@ -1,0 +1,58 @@
+Name:                taygeta
+Version:             0.1.0
+Synopsis:            A library for text processing and NLP.
+-- Description:         
+Homepage:            http://github.com/erochest/taygeta
+License:             BSD3
+License-file:        LICENSE
+Author:              Eric Rochester
+Maintainer:          erochest@virginia.edu
+-- Copyright:           
+Category:            Data
+
+Build-type:          Simple
+
+-- Extra-source-files:  
+
+Cabal-version:       >=1.9.2
+
+Flag development
+  Description: Build in development mode.
+  Default:     False
+
+Flag profiling
+  Description: Build with profiling enabled.
+  Default:     False
+
+Library
+  -- Exposed-modules:     
+  
+  -- Build-depends:       
+  
+  -- Other-modules:       
+  
+  -- Build-tools:         
+
+  if flag(development)
+    cpp-options: -DDEVELOPMENT
+    ghc-options: -w -Wall -fhpc
+  else
+    if flag(profiling)
+      cpp-options: -DDEVELOPMENT
+      ghc-options: -w -Wall -rtsopts -fhpc
+    else
+      ghc-options: -Wall -fwarn-tabs -funbox-strict-fields
+                   -fno-warn-orphans -fno-warn-unused-do-bind -rtsopts
+
+Test-Suite test-taygeta
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is:        TestTaygeta.hs
+  build-depends:
+      taygeta
+  ghc-options:    -Wall -rtsopts -fhpc
+
+Source-Repository head
+  type:     git
+  location: git://github.com/erochest/taygeta.git
+  

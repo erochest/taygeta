@@ -17,8 +17,9 @@ import qualified Data.Text.IO as TIO
 import           System.Environment
 import           Text.Printf
 
-type Token   = T.Text
-type FreqMap = M.Map Token Int
+type Token       = T.Text
+type FreqMap     = M.Map Token Int
+type FreqFreqMap = M.Map Int Int
 
 tokenize :: FilePath -> IO [Token]
 tokenize file =   filter (not . T.null)
@@ -30,23 +31,34 @@ countFreqs :: [Token] -> FreqMap
 countFreqs = L.foldl' inc M.empty
     where inc m t = M.insertWith' (+) t 1 m
 
-sortFreqs :: FreqMap -> [(Token, Int)]
+countFreqOfFreqs :: FreqMap -> FreqFreqMap
+countFreqOfFreqs fm = M.foldl' inc M.empty fm
+    where inc m f = M.insertWith' (+) f 1 m
+
+sortFreqs :: (Ord v) => M.Map k v -> [(k, v)]
 sortFreqs = L.reverse . L.sortBy (comparing snd) . M.toList
 
-reportFreqs :: [(Token, Int)] -> String
+reportFreqs :: (Show a) => [(a, Int)] -> String
 reportFreqs = L.foldl' format [] . L.reverse
-    where format s (t, f) = (printf "%20s %d\n" (T.unpack t) f) ++ s
+    where format s (a, f) = (printf "%20s %d\n" (show a) f) ++ s
 
 main :: IO ()
 main = do
     tokens <- liftM concat . mapM tokenize =<< getArgs
-    let freqs = countFreqs tokens
+    let freqs  = countFreqs tokens
+    let ffreqs = countFreqOfFreqs freqs
 
+    -- Top 20 most frequent tokens
     putStrLn . reportFreqs . take 20 . sortFreqs $ freqs
     putStrLn ""
 
+    -- General frequency statistics
     printf "Total tokens = %d\n" (length tokens)
     printf "Total types  = %d\n" (M.size freqs)
+    putStrLn ""
+
+    -- Frequency of frequencies
+    putStrLn . reportFreqs . L.sortBy (comparing fst) $ M.toList ffreqs
     putStrLn ""
 
 

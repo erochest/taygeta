@@ -9,6 +9,7 @@ import           Control.Monad
 import           Data.Char
 import qualified Data.List as L
 import qualified Data.Map as M
+import           Data.Maybe (mapMaybe)
 import           Data.Ord (comparing)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -18,16 +19,32 @@ import           System.Environment
 import           Text.Printf
 
 type Token       = T.Text
+type Location    = Int
 type Bigram      = (Token, Token)
 type FreqMap a   = M.Map a Int
 
-tokenize :: FilePath -> IO [Token]
-tokenize file =   filter (not . T.null)
-              .   map (T.filter isAlphaNum . T.toLower)
-              .   T.words
-              <$> TIO.readFile file
+tokenizeFile :: FilePath -> IO [(Location, Token)]
+tokenizeFile = fmap tokenize . TIO.readFile
 
-bigrams :: [Token] -> [Bigram]
+tokenize :: T.Text -> [(Location, Token)]
+tokenize input = filter notEmpty . map (fmap normalize) $ tokenize' input 0
+    where
+        tokenize' inp i1 =
+            let (s, inp')  = T.span isSpace inp
+                loc        = i1 + T.length s
+                (t, inp'') = T.break isSpace inp'
+                loc'       = loc + T.length t
+            in  if T.null t
+                    then []
+                    else ((loc, t) : tokenize' inp'' loc')
+
+        notEmpty (_, t) | T.null t  = False
+                        | otherwise = True
+
+normalize :: Token -> Token
+normalize = T.filter isAlphaNum . T.toLower
+
+bigrams :: [a] -> [(a, a)]
 bigrams (a: (as@(b:_))) = (a, b) : bigrams as
 bigrams _             = []
 
@@ -46,28 +63,37 @@ reportFreqs = L.foldl' format [] . L.reverse . zip [1..]
 
 main :: IO ()
 main = do
-    tokens <- liftM concat . mapM tokenize =<< getArgs
-    let freqs  = countFreqs tokens
-    let ffreqs = countFreqs $ M.elems freqs
+    args <- getArgs
+    forM_ args $ \filename -> do
+        text <- TIO.readFile filename
+        let tokens  = tokenize text
+            tokens' = map snd tokens
 
-    let bigs   = bigrams tokens
-    let bfreqs = countFreqs bigs
+            freqs   = countFreqs tokens'
+            ffreqs  = countFreqs $ M.elems freqs
 
-    -- Top 20 most frequent tokens
-    putStrLn . reportFreqs . take 20 . sortFreqs $ freqs
-    putStrLn ""
+            bigs    = bigrams tokens'
+            bfreqs  = countFreqs bigs
 
-    -- General frequency statistics
-    printf "Total tokens = %d\n" (length tokens)
-    printf "Total types  = %d\n" (M.size freqs)
-    putStrLn ""
+        putStrLn filename
+        putStrLn . take (length filename) $ repeat '='
+        putStrLn ""
 
-    -- Frequency of frequencies
-    putStrLn . reportFreqs . L.sortBy (comparing fst) $ M.toList ffreqs
-    putStrLn ""
+        -- Top 20 most frequent tokens
+        putStrLn . reportFreqs . take 20 . sortFreqs $ freqs
+        putStrLn ""
 
-    -- Frequency of bigrams
-    putStrLn . reportFreqs . take 20 . sortFreqs $ bfreqs
+        -- General frequency statistics
+        printf "Total tokens = %d\n" (length tokens')
+        printf "Total types  = %d\n" (M.size freqs)
+        putStrLn ""
 
+        -- Frequency of frequencies
+        putStrLn . reportFreqs . L.sortBy (comparing fst) $ M.toList ffreqs
+        putStrLn ""
+
+        -- Frequency of bigrams
+        putStrLn . reportFreqs . take 20 . sortFreqs $ bfreqs
+        putStrLn ""
 
 

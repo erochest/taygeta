@@ -38,10 +38,16 @@ reportFreqs = L.foldl' format [] . L.reverse
     where format s (t, f) = (printf "%20s %d\n" (T.unpack t) f) ++ s
 
 main :: IO ()
-main =
-    getArgs >>=
-    mapM tokenize >>=
-    putStrLn . reportFreqs . take 20 . sortFreqs . countFreqs . concat
+main = do
+    tokens <- liftM concat . mapM tokenize =<< getArgs
+    let freqs = countFreqs tokens
+
+    putStrLn . reportFreqs . take 20 . sortFreqs $ freqs
+    putStrLn ""
+
+    printf "Total tokens = %d\n" (length tokens)
+    printf "Total types  = %d\n" (M.size freqs)
+    putStrLn ""
 
 
 

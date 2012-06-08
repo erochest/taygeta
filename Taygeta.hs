@@ -27,13 +27,9 @@ tokenize file =   filter (not . T.null)
               .   T.words
               <$> TIO.readFile file
 
-countFreqs :: [Token] -> FreqMap
+countFreqs :: (Ord a) => [a] -> M.Map a Int
 countFreqs = L.foldl' inc M.empty
     where inc m t = M.insertWith' (+) t 1 m
-
-countFreqOfFreqs :: FreqMap -> FreqFreqMap
-countFreqOfFreqs fm = M.foldl' inc M.empty fm
-    where inc m f = M.insertWith' (+) f 1 m
 
 sortFreqs :: (Ord v) => M.Map k v -> [(k, v)]
 sortFreqs = L.reverse . L.sortBy (comparing snd) . M.toList
@@ -48,7 +44,7 @@ main :: IO ()
 main = do
     tokens <- liftM concat . mapM tokenize =<< getArgs
     let freqs  = countFreqs tokens
-    let ffreqs = countFreqOfFreqs freqs
+    let ffreqs = countFreqs $ M.elems freqs
 
     -- Top 20 most frequent tokens
     putStrLn . reportFreqs . take 20 . sortFreqs $ freqs

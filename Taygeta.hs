@@ -39,8 +39,10 @@ sortFreqs :: (Ord v) => M.Map k v -> [(k, v)]
 sortFreqs = L.reverse . L.sortBy (comparing snd) . M.toList
 
 reportFreqs :: (Show a) => [(a, Int)] -> String
-reportFreqs = L.foldl' format [] . L.reverse
-    where format s (a, f) = (printf "%20s %d\n" (show a) f) ++ s
+reportFreqs = L.foldl' format [] . L.reverse . zip [1..]
+    where
+        format s (r, (a, f)) =
+            (printf "%4d. %20s %-5d %d\n" r (show a) f (r * f)) ++ s
 
 main :: IO ()
 main = do

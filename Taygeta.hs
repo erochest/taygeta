@@ -18,8 +18,8 @@ import           System.Environment
 import           Text.Printf
 
 type Token       = T.Text
-type FreqMap     = M.Map Token Int
-type FreqFreqMap = M.Map Int Int
+type Bigram      = (Token, Token)
+type FreqMap a   = M.Map a Int
 
 tokenize :: FilePath -> IO [Token]
 tokenize file =   filter (not . T.null)
@@ -27,11 +27,15 @@ tokenize file =   filter (not . T.null)
               .   T.words
               <$> TIO.readFile file
 
+bigrams :: [Token] -> [Bigram]
+bigrams (a: (as@(b:_))) = (a, b) : bigrams as
+bigrams _             = []
+
 countFreqs :: (Ord a) => [a] -> M.Map a Int
 countFreqs = L.foldl' inc M.empty
     where inc m t = M.insertWith' (+) t 1 m
 
-sortFreqs :: (Ord v) => M.Map k v -> [(k, v)]
+sortFreqs :: FreqMap k -> [(k, Int)]
 sortFreqs = L.reverse . L.sortBy (comparing snd) . M.toList
 
 reportFreqs :: (Show a) => [(a, Int)] -> String
@@ -46,6 +50,9 @@ main = do
     let freqs  = countFreqs tokens
     let ffreqs = countFreqs $ M.elems freqs
 
+    let bigs   = bigrams tokens
+    let bfreqs = countFreqs bigs
+
     -- Top 20 most frequent tokens
     putStrLn . reportFreqs . take 20 . sortFreqs $ freqs
     putStrLn ""
@@ -58,6 +65,9 @@ main = do
     -- Frequency of frequencies
     putStrLn . reportFreqs . L.sortBy (comparing fst) $ M.toList ffreqs
     putStrLn ""
+
+    -- Frequency of bigrams
+    putStrLn . reportFreqs . take 20 . sortFreqs $ bfreqs
 
 
 

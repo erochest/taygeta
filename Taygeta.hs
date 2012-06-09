@@ -75,25 +75,35 @@ main = do
             bigs    = bigrams tokens'
             bfreqs  = countFreqs bigs
 
-        putStrLn filename
-        putStrLn . take (length filename) $ repeat '='
-        putStrLn ""
+        header filename             >> nl
+        tokenFreqReport freqs       >> nl
+        freqReport tokens' freqs    >> nl
+        freqFreqReport ffreqs       >> nl
+        bigramReport bfreqs         >> nl
 
-        -- Top 20 most frequent tokens
-        putStrLn . reportFreqs . take 20 . sortFreqs $ freqs
-        putStrLn ""
+    where
+        nl = putStrLn ""
 
-        -- General frequency statistics
-        printf "Total tokens = %d\n" (length tokens')
-        printf "Total types  = %d\n" (M.size freqs)
-        putStrLn ""
+        header filename = do
+            putStrLn filename
+            putStrLn . take (length filename) $ repeat '='
 
-        -- Frequency of frequencies
-        putStrLn . reportFreqs . L.sortBy (comparing fst) $ M.toList ffreqs
-        putStrLn ""
+        tokenFreqReport =
+            -- Top 20 most frequent tokens
+            putStrLn . reportFreqs . take 20 . sortFreqs
 
-        -- Frequency of bigrams
-        putStrLn . reportFreqs . take 20 . sortFreqs $ bfreqs
-        putStrLn ""
+        freqReport :: [Token] -> FreqMap Token -> IO ()
+        freqReport tokens freqs = do
+            -- General frequency statistics
+            printf "Total tokens = %d\n" (length tokens)
+            printf "Total types  = %d\n" (M.size freqs)
+
+        freqFreqReport = 
+            -- Frequency of frequencies
+            putStrLn . reportFreqs . L.sortBy (comparing fst) . M.toList
+
+        bigramReport =
+            -- Frequency of bigrams
+            putStrLn . reportFreqs . take 20 . sortFreqs
 
 

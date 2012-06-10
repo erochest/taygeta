@@ -52,7 +52,7 @@ bigrams :: [a] -> [(a, a)]
 bigrams (a: (as@(b:_))) = (a, b) : bigrams as
 bigrams _             = []
 
-countFreqs :: (Ord a) => [a] -> M.Map a Int
+countFreqs :: (Ord a) => [a] -> FreqMap a
 countFreqs = L.foldl' inc M.empty
     where inc m t = M.insertWith' (+) t 1 m
 
@@ -60,9 +60,9 @@ sortFreqs :: FreqMap k -> [(k, Int)]
 sortFreqs = L.reverse . L.sortBy (comparing snd) . M.toList
 
 reportFreqs :: (Show a) => [(a, Int)] -> String
-reportFreqs = L.foldl' format [] . L.reverse . zip [1..]
+reportFreqs = L.foldr format [] . L.reverse . zip [1..]
     where
-        format s (r, (a, f)) =
+        format (r, (a, f)) s =
             (printf "%4d. %20s %-5d %d\n" r (show a) f (r * f)) ++ s
 
 indexTokens :: [(Location, Token)] -> InvertedIndex

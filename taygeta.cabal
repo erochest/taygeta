@@ -44,13 +44,32 @@ Library
       ghc-options: -Wall -fwarn-tabs -funbox-strict-fields
                    -fno-warn-orphans -fno-warn-unused-do-bind -rtsopts
 
-Test-Suite test-taygeta
-  type:           exitcode-stdio-1.0
-  hs-source-dirs: tests
-  main-is:        TestTaygeta.hs
-  build-depends:
-      taygeta
-  ghc-options:    -Wall -rtsopts -fhpc
+Executable taygeta
+  Main-is:      Taygeta.hs
+  Build-depends:
+      base       >=4.3
+    , text       >=0.11 && <0.13
+    , containers >=0.4 && <0.6
+
+  if flag(development)
+    cpp-options: -DDEVELOPMENT
+    ghc-options: -w -Wall -fhpc
+  else
+    if flag(profiling)
+      cpp-options: -DDEVELOPMENT
+      ghc-options: -w -Wall -rtsopts -fhpc
+    else
+      ghc-options: -Wall -fwarn-tabs -funbox-strict-fields
+                   -fno-warn-orphans -fno-warn-unused-do-bind -rtsopts
+                   -threaded
+
+-- Test-Suite test-taygeta
+--   type:           exitcode-stdio-1.0
+--   hs-source-dirs: tests
+--   main-is:        TestTaygeta.hs
+--   build-depends:
+--       taygeta
+--   ghc-options:    -Wall -rtsopts -fhpc
 
 Source-Repository head
   type:     git

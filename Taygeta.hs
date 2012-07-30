@@ -70,7 +70,7 @@ kwic text width index target =
     map getContext . L.sort $ M.lookupDefault [] target index
     where
         csize :: Int
-        csize   = round $ (fromIntegral width / 2) - (fromIntegral $ T.length target) / 2
+        csize   = round $ (fromIntegral width / 2 :: Double) - (fromIntegral $ T.length target) / (2 :: Double)
 
         rmnl '\n' = ' '
         rmnl '\r' = ' '

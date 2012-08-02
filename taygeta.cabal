@@ -36,6 +36,8 @@ Library
     , containers           >= 0.4  && < 0.6
     , hashable             >= 1.1  && < 1.3
     , unordered-containers >= 0.2  && < 0.4
+    , system-filepath      >= 0.4  && < 0.6
+    , attoparsec           >= 0.10 && < 0.12
 
   if flag(development)
     cpp-options: -DDEVELOPMENT
@@ -76,10 +78,12 @@ Test-Suite test-taygeta
   build-depends:
       base               >= 4.3
     , taygeta
-    , hspec              >= 1.3 && < 1.5
+    , system-filepath    >= 0.4  && < 0.6
+    , text               >= 0.11 && < 0.13
+    , hspec              >= 1.3  && < 1.5
     , hspec-expectations
-    , HUnit              >= 1.0 && <= 2.0
-    , QuickCheck         >= 2.4 && <= 2.5
+    , HUnit              >= 1.0  && <= 2.0
+    , QuickCheck         >= 2.4  && <= 2.5
   ghc-options:    -Wall -rtsopts -fhpc
 
 Source-Repository head

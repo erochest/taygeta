@@ -7,12 +7,11 @@ module Text.Taygeta.Tokenizer
     , TokenType
     , Token(..)
     , TokenLoc(..)
-    , FullToken(..)
+    , FullToken
     ) where
 
 import           Control.Applicative
 import           Data.Attoparsec.Text
-import qualified Data.Attoparsec.Text as AT
 import           Data.Char
 import qualified Data.List as L
 import qualified Data.Text as T
@@ -54,13 +53,47 @@ tokenList source offset =
             )
 
 token :: Parser Token
-token = spaceToken
+token = (
+        spaceToken
+    <|> alphaToken
+    <|> digitToken
+    <|> punctToken
+    <|> markToken
+    <|> symbolToken
+    <|> separatorToken
+    <|> anyToken
+    )
 
 token' :: (Char -> Bool) -> Parser Token
-token' p = do
-    raw <- takeWhile1 p
-    return . Token raw $ normalize raw
+token' p = mkToken <$> takeWhile1 p
+
+tchar :: (Char -> Bool) -> Parser Token
+tchar p = mkToken . T.singleton <$> satisfy p
 
 spaceToken :: Parser Token
 spaceToken = token' isSpace
+
+alphaToken :: Parser Token
+alphaToken = token' isAlpha
+
+digitToken :: Parser Token
+digitToken = token' isDigit
+
+punctToken :: Parser Token
+punctToken = tchar isPunctuation
+
+markToken :: Parser Token
+markToken = token' isMark
+
+symbolToken :: Parser Token
+symbolToken = token' isSymbol
+
+separatorToken :: Parser Token
+separatorToken = token' isSeparator
+
+anyToken :: Parser Token
+anyToken = mkToken . T.singleton <$> anyChar
+
+mkToken :: T.Text -> Token
+mkToken t = Token t $ normalize t
 

@@ -23,6 +23,9 @@ edefault d f e = either (const d) f e
 tokenize' :: T.Text -> [Token]
 tokenize' = edefault [] (map snd) . tokenize P.empty 0
 
+getChars :: (Char -> Bool) -> String
+getChars = flip filter [minBound..maxBound]
+
 -- Properties
 
 pLengthSum :: T.Text -> Bool
@@ -49,13 +52,25 @@ genNumberList :: Gen T.Text
 genNumberList = genList $ ['0'..'9']
 
 genPunctuationList :: Gen T.Text
-genPunctuationList = genTextChars $ filter isPunctuation [minBound..maxBound]
+genPunctuationList = genTextChars $ getChars isPunctuation
+
+genText :: (Char -> Bool) -> Gen T.Text
+genText = genTextChars . getChars
 
 genPrintList :: Gen T.Text
-genPrintList = genTextChars $ filter isPrint [minBound..maxBound]
+genPrintList = genText isPrint
 
 genSpaceList :: Gen T.Text
-genSpaceList = genTextChars $ filter isSpace [minBound..maxBound]
+genSpaceList = genText isSpace
+
+genMarkList :: Gen T.Text
+genMarkList = genText isMark
+
+genSymbolList :: Gen T.Text
+genSymbolList = genText isSymbol
+
+genSeparatorList :: Gen T.Text
+genSeparatorList = genText (\c -> isSeparator c && not (isSpace c))
 
 -- Predicates
 
@@ -63,10 +78,20 @@ allSame :: Eq a => [a] -> Bool
 allSame []     = False
 allSame (x:xs) = L.all (== x) xs
 
-allTokensAre :: Gen T.Text -> (Char -> Bool) -> Property
-allTokensAre gen p = forAll gen $ \n ->
+allCharsAre :: Gen T.Text -> (Char -> Bool) -> Property
+allCharsAre gen p = forAll gen $ \n ->
     let tokens = filter ((" " /=) . tokenRaw) $ tokenize' n
     in  (length tokens > 0) .&&. (L.all (T.all p) $ map tokenRaw tokens)
+
+allCharsAre' :: Gen T.Text -> (Char -> Bool) -> Property
+allCharsAre' gen p = forAll gen $ \n ->
+    let tokens = tokenize' n
+    in  (length tokens > 0) .&&. (L.all (T.all p) $ map tokenRaw tokens)
+
+allTokensAre :: Gen T.Text -> (Token -> Bool) -> Property
+allTokensAre gen p = forAll gen $ \n ->
+    let tokens = filter ((" " /=) . tokenRaw) $ tokenize' n
+    in  (length tokens > 0) .&&. (L.all p tokens)
 
 -- Specifications
 
@@ -80,16 +105,28 @@ main = hspec $ do
             property pIdem
 
         it "should tokenize alphabetic tokens" $ property $
-            allTokensAre genAlphaList isAlpha
+            allCharsAre genAlphaList isAlpha
 
         it "should tokenize numeric tokens" $ property $
-            allTokensAre genNumberList isDigit
+            allCharsAre genNumberList isDigit
 
         it "should tokenize punctuation" $
-            allTokensAre genPunctuationList isPunctuation
+            allCharsAre genPunctuationList isPunctuation
+
+        it "should tokenize punctuation one character each" $
+            allTokensAre genPunctuationList ((1 ==) . T.length . tokenRaw)
 
         it "should return whitespace" $
-            allTokensAre genSpaceList isSpace
+            allCharsAre' genSpaceList isSpace
+
+        it "should return marks" $
+            allCharsAre genMarkList isMark
+
+        it "should return symbols" $
+            allCharsAre genSymbolList isSymbol
+
+        it "should return separators" $
+            allCharsAre genSeparatorList (\c -> isSeparator c && not (isSpace c))
 
     describe "The number filter" $ do
         it "should join numbers with common number punctuation" $

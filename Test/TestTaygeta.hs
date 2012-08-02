@@ -15,15 +15,23 @@ instance Arbitrary T.Text where
     arbitrary = T.pack `fmap` arbitrary
     shrink    = shrinkNothing
 
+-- Utilities
+
+edefault :: c -> (b -> c) -> Either a b  -> c
+edefault d f e = either (const d) f e
+
+tokenize' :: T.Text -> [Token]
+tokenize' = edefault [] (map snd) . tokenize P.empty 0
+
 -- Properties
 
 pLengthSum :: T.Text -> Bool
 pLengthSum input =
-    T.length input == (sum $ map (T.length . tokenRaw . snd) (tokenize P.empty 0 input))
+    T.length input == (sum $ map (T.length . tokenRaw) (tokenize' input))
 
 pIdem :: T.Text -> Bool
 pIdem input =
-    input == (T.concat $ map (tokenRaw . snd) (tokenize P.empty 0 input))
+    input == (T.concat $ map tokenRaw (tokenize' input))
 
 -- Generators
 
@@ -57,7 +65,7 @@ allSame (x:xs) = L.all (== x) xs
 
 allTokensAre :: Gen T.Text -> (Char -> Bool) -> Property
 allTokensAre gen p = forAll gen $ \n ->
-    let tokens = filter ((" " /=) . tokenRaw) . map snd $ tokenize P.empty 0 n
+    let tokens = filter ((" " /=) . tokenRaw) $ tokenize' n
     in  (length tokens > 0) .&&. (L.all (T.all p) $ map tokenRaw tokens)
 
 -- Specifications

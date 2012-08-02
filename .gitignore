@@ -1,0 +1,5 @@
+.hpc/
+dist
+dist_taygeta/
+hpc/
+*.tix

@@ -27,6 +27,7 @@ Flag profiling
 Library
   Exposed-modules:
       Text.Taygeta.Tokenizer
+    , Taygeta.Corpus
 
   Other-modules:
 

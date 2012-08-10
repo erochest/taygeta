@@ -39,6 +39,9 @@ Library
     , unordered-containers >= 0.2  && < 0.4
     , system-filepath      >= 0.4  && < 0.6
     , attoparsec           >= 0.10 && < 0.12
+    , data-lens            >= 2.10 && < 2.12
+    , transformers         >= 0.3  && < 0.5
+    , monad-control        >= 0.3  && < 0.5
 
   if flag(development)
     cpp-options: -DDEVELOPMENT

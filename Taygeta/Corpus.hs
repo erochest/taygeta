@@ -6,11 +6,19 @@
 -- TODO add a parameter on Corpus for the type of data in the files.
 
 module Taygeta.Corpus
-    ( CorpusT(..)
-    , evalCorpus
+    ( DocumentId
+    , DocumentAnchor
+    , Offset
+    , CorpusT(..)
     , Corpus(..)
     , Document(..)
     , DocumentLocation(..)
+    , evalCorpus
+    , offsetInt
+    , setOffset'
+    , moveOffset'
+    , setOffset
+    , moveOffset
     ) where
 
 

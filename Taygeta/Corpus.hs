@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -12,6 +14,8 @@ module Taygeta.Corpus
     ) where
 
 
+import           Control.Monad.Identity
+import           Control.Monad.State.Class (MonadState)
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State.Strict
 import qualified Data.ByteString as B
@@ -24,6 +28,7 @@ import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Text as T
 import           Filesystem.Path.CurrentOS
+import           Prelude hiding (FilePath)
 
 
 -- Sketching out things:
@@ -64,9 +69,8 @@ evalCorpus :: Monad m => CorpusT m a -> m a
 evalCorpus m = evalStateT m state
     where state = DocumentLocation Nothing Nothing mempty
 
-class Corpus a where
-    getDocuments :: Monad m
-                 => C.Conduit a (CorpusT m) B.ByteString
+class Corpus m a where
+    getDocuments :: C.Conduit a (CorpusT m) B.ByteString
 
 class Document a where
     getDocumentData :: (Monad m, C.MonadThrow m)
@@ -100,15 +104,12 @@ moveOffset delta = modify (moveOffset' delta)
 --
 -- This corpus is made up of one document with a byte string. (Text strings can
 -- be created by creating a Document Text directly.)
-instance Corpus B.ByteString where
-    getDocuments = do
-        input' <- C.await
-        case input' of
-            Nothing    -> return ()
-            Just input -> do
-                lift . put $ DocumentLocation (Just "<byte-string>") Nothing mempty
-                C.yield input
-                getDocuments
+instance Monad m => Corpus m B.ByteString where
+    getDocuments = CL.mapM putLocation
+        where putLocation i = do
+                    put $ DocumentLocation (Just "<byte-string>")
+                                                  Nothing mempty
+                    return i
 
 instance Document T.Text where
     getDocumentData = CT.decode CT.utf8
@@ -116,17 +117,16 @@ instance Document T.Text where
 
 -- Corpus FilePath
 -- This corpus is all the files in a directory.
-{- instance Corpus FilePath where -}
-    {- data DocumentSource FilePath = PathDocumentSource FilePath -}
-    {- data Document FilePath = PathDocument FilePath -}
-    {- data DocumentLocation FilePath = PathDocLocation FilePath Int -}
-
-    {- getDocuments (PathDocumentSource root) = -}
-        {- traverse True root $= CL.map PathDocument -}
-
-    {- getDocumentChunks size = -}
-        {- CL.sequence  -}
-
-{- directoryDocumentSource :: FilePath -> DocumentSource FilePath -}
-{- directoryDocumentSource = PathDocumentSource -}
+instance Corpus (C.ResourceT IO) FilePath where
+    getDocuments = do
+        fp' <- C.await
+        case fp' of
+            Nothing -> return ()
+            Just fp -> do
+                lift . put $ DocumentLocation (Just $ safePath fp) Nothing mempty
+                sourceFile fp
+                getDocuments
+        where safePath = safePath' . toText
+              safePath' (Left t)  = t
+              safePath' (Right t) = t
 

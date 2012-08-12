@@ -3,12 +3,13 @@
 
 module Main where
 
+import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.Control ()
 import           Control.Monad.Trans.Resource ()
 import           Control.Monad.Trans.State.Strict
 import qualified Data.ByteString as B
-import           Data.Conduit (($=), ($$), await, yield, runPipe)
+import           Data.Conduit (($=), ($$), (=$), await, yield, runPipe)
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Binary as CB
 import qualified Data.Conduit.Internal as CI
@@ -23,15 +24,19 @@ import           Prelude hiding (concatMap, FilePath)
 import           Taygeta.Corpus
 import           System.IO (stdout)
 
-readByteString :: IO ()
-readByteString = 
-    evalCorpus $  sourceList ["Good-bye, cruel world." :: B.ByteString]
-               $= getDocuments
-               $= (getDocumentData :: C.Conduit B.ByteString (CorpusT IO) T.Text)
-               $= getDocumentText
-               $= showLoc
-               $= CT.encode CT.utf8
-               $$ CB.sinkHandle stdout
+-- Processing
+
+process :: (Corpus m a, Monad m, MonadIO m, C.MonadThrow m)
+        => a -> CorpusT m ()
+process a =  sourceList [a]
+          $= getDocuments
+          $= (getDocumentData :: C.MonadThrow n => C.Conduit B.ByteString (CorpusT n) T.Text)
+          $$ getDocumentText
+          =$ showLoc
+          =$ CT.encode CT.utf8
+          =$ CB.sinkHandle stdout
+
+-- Utility methods
 
 showLoc :: Monad m
         => C.Conduit T.Text (CorpusT m) T.Text
@@ -59,16 +64,9 @@ yieldShow = yield . T.pack . show
 yieldNothing :: (Show a, Monad m) => Maybe a -> C.Pipe l i T.Text u m ()
 yieldNothing = yield . maybe "" (T.pack . show)
 
-readFilePath :: IO ()
-readFilePath = C.runResourceT $
-    evalCorpus $  sourceList ["texts/pg74.txt" :: FilePath]
-               $= getDocuments
-               $= (getDocumentData :: C.Conduit B.ByteString (CorpusT (C.ResourceT IO)) T.Text)
-               $= getDocumentText
-               $= showLoc
-               $= CT.encode CT.utf8
-               $$ CB.sinkHandle stdout
+-- main
 
 main :: IO ()
-main = readFilePath
+-- main = evalCorpus $ process ("Good-bye, cruel world." :: B.ByteString)
+main = C.runResourceT $ evalCorpus $ process ("LICENSE" :: FilePath)
 

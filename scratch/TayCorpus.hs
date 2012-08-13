@@ -27,11 +27,11 @@ import           System.IO (stdout)
 
 -- Processing
 
-process :: (Corpus (CorpusT m) a, Monad m, MonadIO m, C.MonadThrow m)
-        => a -> CorpusT m ()
+process :: (Corpus m a, Monad m, MonadIO m, C.MonadThrow m)
+        => a -> m ()
 process a =  sourceList [a]
           $= getDocuments
-          $= (getDocumentData :: C.MonadThrow n => C.Conduit B.ByteString (CorpusT n) T.Text)
+          $= (getDocumentData :: C.MonadThrow n => C.Conduit B.ByteString n T.Text)
           $$ getDocumentText
           =$ showLoc
           =$ CT.encode CT.utf8
@@ -39,35 +39,20 @@ process a =  sourceList [a]
 
 -- Utility methods
 
-showLoc :: Monad m
-        => C.Conduit T.Text (CorpusT m) T.Text
+showLoc :: Monad m => C.Conduit T.Text m T.Text
 showLoc = do
     text' <- await
     case text' of
         Nothing -> return ()
         Just text -> do
-            DocumentLocation{..} <- lift get
-            yield ">>> "
-            yieldNothing documentId
-            yield "#"
-            yieldNothing documentAnchor
-            yield ":"
-            yieldShow $ getSum documentOffset
-            yield " => '"
+            yield ">>> '"
             yield text
             yield "'\n"
-            lift . moveOffset $ T.length text
             showLoc
-
-yieldShow :: (Show a, Monad m) => a -> C.Pipe l i T.Text u m ()
-yieldShow = yield . T.pack . show
-
-yieldNothing :: (Show a, Monad m) => Maybe a -> C.Pipe l i T.Text u m ()
-yieldNothing = yield . maybe "" (T.pack . show)
 
 -- main
 
 main :: IO ()
--- main = evalCorpus $ process ("Good-bye, cruel world." :: B.ByteString)
-main = C.runResourceT $ evalCorpus $ process ("LICENSE" :: FilePath)
+main = process ("Good-bye, cruel world." :: B.ByteString)
+-- main = C.runResourceT $ process ("LICENSE" :: FilePath)
 

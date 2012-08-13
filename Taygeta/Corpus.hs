@@ -22,7 +22,9 @@ module Taygeta.Corpus
     ) where
 
 
+import           Control.Applicative
 import           Control.Monad.Identity
+import           Control.Monad.IO.Class
 import           Control.Monad.State.Class (MonadState)
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State.Strict
@@ -117,13 +119,18 @@ instance Monad m => Corpus (CorpusT m) B.ByteString where
                                                   Nothing mempty
                     return i
 
+instance Monad m => Corpus m B.ByteString where
+    getDocuments = CL.map id
+
 instance Document T.Text where
     getDocumentData = CT.decode CT.utf8
     getDocumentText = CL.map id
 
 -- Corpus FilePath
 -- This corpus is all the files in a directory.
-instance Corpus (CorpusT (C.ResourceT IO)) FilePath where
+instance (Applicative m, MonadIO m, C.MonadThrow m, C.MonadUnsafeIO m)
+      => Corpus (CorpusT (C.ResourceT m)) FilePath
+      where
     getDocuments = do
         fp' <- C.await
         case fp' of
@@ -135,4 +142,15 @@ instance Corpus (CorpusT (C.ResourceT IO)) FilePath where
         where safePath = safePath' . toText
               safePath' (Left t)  = t
               safePath' (Right t) = t
+
+instance (Applicative m, MonadIO m, C.MonadThrow m, C.MonadUnsafeIO m)
+      => Corpus (C.ResourceT m) FilePath
+      where
+    getDocuments = do
+        fp' <- C.await
+        case fp' of
+            Nothing -> return ()
+            Just fp -> do
+                sourceFile fp
+                getDocuments
 

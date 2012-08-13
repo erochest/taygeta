@@ -3,6 +3,7 @@
 
 module Text.Taygeta.Tokenizer
     ( tokenize
+    , token
     , normalize
     , TokenType
     , Token(..)

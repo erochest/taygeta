@@ -56,7 +56,7 @@ sortFreqs :: FreqMap k -> [(k, Int)]
 sortFreqs = L.reverse . L.sortBy (comparing snd) . M.toList
 
 reportFreqs :: (Show a) => [(a, Int)] -> String
-reportFreqs = L.foldr format [] . L.reverse . zip [1..]
+reportFreqs = L.foldr format [] . zip [1..]
     where
         format (r, (a, f)) s =
             (printf "%4d. %20s %-5d %d\n" r (show a) f (r * f)) ++ s

@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -26,7 +27,7 @@ import           System.IO (stdout)
 
 -- Processing
 
-process :: (Corpus m a, Monad m, MonadIO m, C.MonadThrow m)
+process :: (Corpus (CorpusT m) a, Monad m, MonadIO m, C.MonadThrow m)
         => a -> CorpusT m ()
 process a =  sourceList [a]
           $= getDocuments

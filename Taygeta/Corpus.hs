@@ -78,13 +78,11 @@ evalCorpus m = evalStateT m state
     where state = DocumentLocation Nothing Nothing mempty
 
 class Corpus m a where
-    getDocuments :: C.Conduit a (CorpusT m) B.ByteString
+    getDocuments :: C.Conduit a m B.ByteString
 
 class Document a where
-    getDocumentData :: (Monad m, C.MonadThrow m)
-                    => C.Conduit B.ByteString (CorpusT m) a
-    getDocumentText :: (Monad m, C.MonadThrow m)
-                    => C.Conduit a (CorpusT m) T.Text
+    getDocumentData :: (Monad m, C.MonadThrow m) => C.Conduit B.ByteString m a
+    getDocumentText :: (Monad m, C.MonadThrow m) => C.Conduit a m T.Text
 
 data DocumentLocation = DocumentLocation
     { documentId     :: Maybe DocumentId
@@ -112,7 +110,7 @@ moveOffset delta = modify (moveOffset' delta)
 --
 -- This corpus is made up of one document with a byte string. (Text strings can
 -- be created by creating a Document Text directly.)
-instance Monad m => Corpus m B.ByteString where
+instance Monad m => Corpus (CorpusT m) B.ByteString where
     getDocuments = CL.mapM putLocation
         where putLocation i = do
                     put $ DocumentLocation (Just "<byte-string>")
@@ -125,7 +123,7 @@ instance Document T.Text where
 
 -- Corpus FilePath
 -- This corpus is all the files in a directory.
-instance Corpus (C.ResourceT IO) FilePath where
+instance Corpus (CorpusT (C.ResourceT IO)) FilePath where
     getDocuments = do
         fp' <- C.await
         case fp' of

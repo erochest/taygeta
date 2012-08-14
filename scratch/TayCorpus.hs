@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -13,6 +14,7 @@ import qualified Data.ByteString as B
 import           Data.Conduit (($=), ($$), (=$), await, yield, runPipe)
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Binary as CB
+import qualified Data.Conduit.Filesystem as CF
 import qualified Data.Conduit.Internal as CI
 import           Data.Conduit.List (sourceList, consume, concatMap)
 import qualified Data.Conduit.List as CL
@@ -27,20 +29,16 @@ import           System.IO (stdout)
 
 -- Processing
 
-process :: (Corpus m a, Monad m, MonadIO m, C.MonadThrow m)
-        => a -> m ()
-process a =  sourceList [a]
-          $= getDocuments
-          $= (getDocumentData :: C.MonadThrow n => C.Conduit B.ByteString n T.Text)
-          $$ getDocumentText
-          =$ showLoc
-          =$ CT.encode CT.utf8
-          =$ CB.sinkHandle stdout
+process :: (Document a, Monad m, MonadIO m, C.MonadThrow m) => C.Sink a m ()
+process =  getDocumentText
+        =$ showContent
+        =$ CT.encode CT.utf8
+        =$ CB.sinkHandle stdout
 
 -- Utility methods
 
-showLoc :: Monad m => C.Conduit T.Text m T.Text
-showLoc = do
+showContent :: Monad m => C.Conduit T.Text m T.Text
+showContent = do
     text' <- await
     case text' of
         Nothing -> return ()
@@ -48,11 +46,11 @@ showLoc = do
             yield ">>> '"
             yield text
             yield "'\n"
-            showLoc
+            showContent
 
 -- main
 
 main :: IO ()
-main = process ("Good-bye, cruel world." :: B.ByteString)
--- main = C.runResourceT $ process ("LICENSE" :: FilePath)
+-- main = CL.sourceList ["Good-bye, cruel world." :: B.ByteString] $$ process
+main = C.runResourceT $ CF.sourceFile "texts/pg74.txt" $$ process
 

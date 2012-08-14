@@ -2,17 +2,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Text.Taygeta.Tokenizer
-    ( tokenize
+    ( tokenC
+    , tokenize
     , token
     , normalize
     , TokenType
     , Token(..)
     , TokenLoc(..)
     , FullToken
+    , CA.PositionRange
+    , CA.Position
     ) where
 
 import           Control.Applicative
 import           Data.Attoparsec.Text
+import qualified Data.Conduit as C
+import qualified Data.Conduit.Attoparsec as CA
 import           Data.Char
 import qualified Data.List as L
 import qualified Data.Text as T
@@ -37,11 +42,21 @@ type FullToken = (TokenLoc, Token)
 type TokenSource = P.FilePath
 type TokenOffset = Int
 
+-- Conduits
+
+tokenC :: (Monad m, C.MonadThrow m)
+       => C.GLInfConduit T.Text m (CA.PositionRange, Token)
+tokenC = CA.conduitParser token
+
+-- Entry functions
+
 tokenize :: TokenSource -> TokenOffset -> T.Text -> Either String [FullToken]
 tokenize source offset = parseOnly (tokenList source offset)
 
 normalize :: T.Text -> T.Text
-normalize = id
+normalize = T.toLower
+
+-- Parser
 
 tokenList :: TokenSource -> TokenOffset -> Parser [FullToken]
 tokenList source offset =

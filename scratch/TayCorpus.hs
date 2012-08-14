@@ -25,17 +25,22 @@ import qualified Data.Text as T
 import           Filesystem.Path.CurrentOS
 import           Prelude hiding (concatMap, FilePath)
 import           Taygeta.Corpus
+import           Text.Taygeta.Tokenizer (tokenC)
 import           System.IO (stdout)
 
 -- Processing
 
 process :: (Document a, Monad m, MonadIO m, C.MonadThrow m) => C.Sink a m ()
 process =  getDocumentText
-        =$ showContent
+        =$ tokenC
+        =$ CL.map (T.pack . nl . show)
         =$ CT.encode CT.utf8
         =$ CB.sinkHandle stdout
 
 -- Utility methods
+
+nl :: String -> String
+nl = (++ "\n")
 
 showContent :: Monad m => C.Conduit T.Text m T.Text
 showContent = do
@@ -51,6 +56,6 @@ showContent = do
 -- main
 
 main :: IO ()
--- main = CL.sourceList ["Good-bye, cruel world." :: B.ByteString] $$ process
-main = C.runResourceT $ CF.sourceFile "texts/pg74.txt" $$ process
+main = CL.sourceList ["Good-bye, cruel world." :: B.ByteString] $$ process
+-- main = C.runResourceT $ CF.sourceFile "texts/pg74.txt" $$ process
 

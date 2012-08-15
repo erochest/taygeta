@@ -3,7 +3,11 @@
 
 module Main where
 
+import           Control.Monad.Identity
+import           Control.Monad.Trans.Resource
 import           Data.Char
+import qualified Data.Conduit as C
+import qualified Data.Conduit.List as CL
 import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Filesystem.Path.CurrentOS as P
@@ -63,11 +67,21 @@ instance Arbitrary T.Text where
 
 -- Utilities
 
-edefault :: c -> (b -> c) -> Either a b  -> c
+edefault :: c -> (b -> c) -> Either a b -> c
 edefault d f e = either (const d) f e
 
 tokenize' :: T.Text -> [Token]
-tokenize' = edefault [] (map snd) . tokenize P.empty 0
+tokenize' input = runTokenConduit input tokenC
+
+runTokenConduit :: T.Text -> C.Conduit T.Text (ExceptionT Identity) TokenPos -> [Token]
+runTokenConduit input conduit =
+    edefault [] id . runIdentity $ runExceptionT conduit'
+    where
+        conduit' :: ExceptionT Identity [Token]
+        conduit' =    CL.sourceList [input]
+                 C.$= conduit
+                 C.$= CL.map snd
+                 C.$$ CL.consume
 
 getChars :: (Char -> Bool) -> String
 getChars = flip filter [minBound..maxBound]

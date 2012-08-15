@@ -9,6 +9,7 @@ module Text.Taygeta.Tokenizer
     , TokenType
     , Token(..)
     , TokenLoc(..)
+    , TokenPos
     , FullToken
     , CA.PositionRange
     , CA.Position
@@ -38,23 +39,20 @@ data TokenLoc = TokenLoc
     } deriving (Eq, Show)
 
 type FullToken = (TokenLoc, Token)
+type TokenPos  = (CA.PositionRange, Token)
 
 type TokenSource = P.FilePath
 type TokenOffset = Int
 
 -- Conduits
 
-tokenC :: (Monad m, C.MonadThrow m)
-       => C.GLInfConduit T.Text m (CA.PositionRange, Token)
+tokenC :: (Monad m, C.MonadThrow m) => C.GLInfConduit T.Text m TokenPos
 tokenC = CA.conduitParser token
 
 -- Entry functions
 
 tokenize :: TokenSource -> TokenOffset -> T.Text -> Either String [FullToken]
 tokenize source offset = parseOnly (tokenList source offset)
-
-normalize :: T.Text -> T.Text
-normalize = T.toLower
 
 -- Parser
 
@@ -112,4 +110,9 @@ anyToken = mkToken . T.singleton <$> anyChar
 
 mkToken :: T.Text -> Token
 mkToken t = Token t $ normalize t
+
+-- Utilities
+
+normalize :: T.Text -> T.Text
+normalize = T.toLower
 

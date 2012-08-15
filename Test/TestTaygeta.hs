@@ -11,6 +11,52 @@ import           Text.Taygeta.Tokenizer
 import           Test.Hspec
 import           Test.QuickCheck
 
+-- Specifications
+
+main :: IO ()
+main = hspec $ do
+    describe "The tokenizer" $ do
+        it "should return a list of tokens, the sum of whose lengths is the length of the input" $
+            property pLengthSum
+
+        it "should be able to recreate the input from the raw output" $
+            property pIdem
+
+        it "should tokenize alphabetic tokens" $ property $
+            allCharsAre genAlphaList isAlpha
+
+        it "should tokenize numeric tokens" $ property $
+            allCharsAre genNumberList isDigit
+
+        it "should tokenize punctuation" $
+            allCharsAre genPunctuationList isPunctuation
+
+        it "should tokenize punctuation one character each" $
+            allTokensAre genPunctuationList ((1 ==) . T.length . tokenRaw)
+
+        it "should return whitespace" $
+            allCharsAre' genSpaceList isSpace
+
+        it "should return marks" $
+            allCharsAre genMarkList isMark
+
+        it "should return symbols" $
+            allCharsAre genSymbolList isSymbol
+
+        it "should return separators" $
+            allCharsAre genSeparatorList (\c -> isSeparator c && not (isSpace c))
+
+    describe "The number filter" $ do
+        it "should join numbers with common number punctuation" $
+            pending "not implemented"
+
+    describe "The English token filter" $ do
+        it "should remove whitespace" $
+            pending "not implemented"
+
+        it "join contractions" $
+            pending "not implemented"
+
 instance Arbitrary T.Text where
     arbitrary = T.pack `fmap` arbitrary
     shrink    = shrinkNothing
@@ -92,50 +138,4 @@ allTokensAre :: Gen T.Text -> (Token -> Bool) -> Property
 allTokensAre gen p = forAll gen $ \n ->
     let tokens = filter ((" " /=) . tokenRaw) $ tokenize' n
     in  (length tokens > 0) .&&. (L.all p tokens)
-
--- Specifications
-
-main :: IO ()
-main = hspec $ do
-    describe "The tokenizer" $ do
-        it "should return a list of tokens, the sum of whose lengths is the length of the input" $
-            property pLengthSum
-
-        it "should be able to recreate the input from the raw output" $
-            property pIdem
-
-        it "should tokenize alphabetic tokens" $ property $
-            allCharsAre genAlphaList isAlpha
-
-        it "should tokenize numeric tokens" $ property $
-            allCharsAre genNumberList isDigit
-
-        it "should tokenize punctuation" $
-            allCharsAre genPunctuationList isPunctuation
-
-        it "should tokenize punctuation one character each" $
-            allTokensAre genPunctuationList ((1 ==) . T.length . tokenRaw)
-
-        it "should return whitespace" $
-            allCharsAre' genSpaceList isSpace
-
-        it "should return marks" $
-            allCharsAre genMarkList isMark
-
-        it "should return symbols" $
-            allCharsAre genSymbolList isSymbol
-
-        it "should return separators" $
-            allCharsAre genSeparatorList (\c -> isSeparator c && not (isSpace c))
-
-    describe "The number filter" $ do
-        it "should join numbers with common number punctuation" $
-            pending "not implemented"
-
-    describe "The English token filter" $ do
-        it "should remove whitespace" $
-            pending "not implemented"
-
-        it "join contractions" $
-            pending "not implemented"
 

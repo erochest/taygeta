@@ -12,23 +12,11 @@ module Taygeta.Corpus
     ) where
 
 
-import           Control.Applicative
-import           Control.Monad.Identity
-import           Control.Monad.IO.Class
-import           Control.Monad.State.Class (MonadState)
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.State.Strict
 import qualified Data.ByteString as B
 import qualified Data.Conduit as C
-import           Data.Conduit.Filesystem
 import qualified Data.Conduit.List as CL
 import qualified Data.Conduit.Text as CT
-import           Data.Lens.Common
-import           Data.Maybe
-import           Data.Monoid
 import qualified Data.Text as T
-import           Filesystem.Path.CurrentOS
-import           Prelude hiding (FilePath)
 
 
 -- Sketching out things:

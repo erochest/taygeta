@@ -21,6 +21,7 @@ import qualified Data.Conduit as C
 import qualified Data.Conduit.Attoparsec as CA
 import           Data.Char
 import qualified Data.List as L
+import           Data.Monoid
 import qualified Data.Text as T
 import qualified Filesystem.Path.CurrentOS as P
 
@@ -31,6 +32,11 @@ data Token = Token
     , tokenText :: !TokenType
     } deriving (Eq, Show)
 
+instance Monoid Token where
+    mempty = Token mempty mempty
+    mappend t1 t2 = Token (tokenRaw t1 `mappend` tokenRaw t2)
+                          (tokenText t1 `mappend` tokenText t2)
+
 -- This should probably use type families, similar to how persistent handles
 -- IDs.
 data TokenLoc = TokenLoc
@@ -39,6 +45,8 @@ data TokenLoc = TokenLoc
     } deriving (Eq, Show)
 
 type FullToken = (TokenLoc, Token)
+
+-- TODO: Make a monoid? What if non-contiguous?
 type TokenPos  = (CA.PositionRange, Token)
 
 type TokenSource = P.FilePath

@@ -8,6 +8,7 @@ import           Control.Monad.Trans.Resource
 import           Data.Char
 import qualified Data.Conduit as C
 import qualified Data.Conduit.List as CL
+import           Data.Monoid
 import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Filesystem.Path.CurrentOS as P
@@ -50,6 +51,21 @@ main = hspec $ do
         it "should return separators" $
             allCharsAre genSeparatorList (\c -> isSeparator c && not (isSpace c))
 
+    describe "The Token type" $ do
+        it "should mappend mempty x == x" $ property $ \t ->
+            let token = Token t $ normalize t
+            in  mappend mempty token == token
+
+        it "should mappend x mempty == x" $ property $ \t ->
+            let token = Token t $ normalize t
+            in  mappend token mempty == token
+
+        it "should mappend x (mappend y z) == mappend (mappend x y) z" $ property $ \(tx, ty, tz) ->
+            let tokenx = Token tx $ normalize tx
+                tokeny = Token ty $ normalize ty
+                tokenz = Token tz $ normalize tz
+            in  mappend tokenx (mappend tokeny tokenz) == mappend (mappend tokenx tokeny) tokenz
+
     describe "The number filter" $ do
         it "should join numbers with common number punctuation" $
             pending "not implemented"
@@ -73,6 +89,8 @@ edefault d f e = either (const d) f e
 tokenize' :: T.Text -> [Token]
 tokenize' input = runTokenConduit input tokenC
 
+-- TODO: Somehow refactor this into Text.Taygeta.Tokenizer or *.Util or
+-- *.Conduit or something.
 runTokenConduit :: T.Text -> C.Conduit T.Text (ExceptionT Identity) TokenPos -> [Token]
 runTokenConduit input conduit =
     edefault [] id . runIdentity $ runExceptionT conduit'

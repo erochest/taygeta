@@ -45,8 +45,6 @@ data TokenLoc = TokenLoc
     } deriving (Eq, Show)
 
 type FullToken = (TokenLoc, Token)
-
--- TODO: Make a monoid? What if non-contiguous?
 type TokenPos  = (CA.PositionRange, Token)
 
 type TokenSource = P.FilePath

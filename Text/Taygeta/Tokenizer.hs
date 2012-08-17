@@ -7,6 +7,7 @@ module Text.Taygeta.Tokenizer
     , englishFilter
     , contractionFilter
     , whitespaceFilter
+    , alphaNumericFilter
     , tokenize
     , token
     , normalize
@@ -83,6 +84,9 @@ englishFilter = contractionFilter
 
 contractionFilter :: Monad m => C.Conduit TokenPos m TokenPos
 contractionFilter = joinFilter (T.all isAlpha . tokenText) ((== "'") . tokenText)
+
+alphaNumericFilter :: Monad m => C.Conduit TokenPos m TokenPos
+alphaNumericFilter = CL.filter (T.any isAlphaNum . tokenText . snd)
 
 joinFilter :: Monad m
            => (Token -> Bool) -> (Token -> Bool)

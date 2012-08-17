@@ -87,12 +87,35 @@ main = hspec $ do
             "a b c" `shouldParseTo` ["a", "b", "c"]
 
     describe "The English token filter" $ do
-        it "join contractions" $ do
+        it "should join contractions" $ do
             let english = tokenC C.=$= englishFilter C.=$= whitespaceFilter
                 shouldParseTo input expected =
                     (input `shouldParseWith` english) expected
             "a, b, c"           `shouldParseTo` ["a", ",", "b", ",", "c"]
             "a, don't tell me!" `shouldParseTo` [ "a", ",", "don't", "tell", "me", "!" ]
+
+    describe "The alpha-numeric filter" $ do
+        let conduit =     tokenC
+                    C.=$= numberFilter
+                    C.=$= englishFilter
+                    C.=$= alphaNumericFilter
+            shouldParseTo input expected =
+                (input `shouldParseWith` conduit) expected
+
+        it "should remove whitespace" $ do
+            "a b c" `shouldParseTo` ["a", "b", "c"]
+
+        it "should remove punctuation" $ do
+            "a-b,c!" `shouldParseTo` ["a", "b", "c"]
+
+        it "should leave words" $ do
+            "these are some words!" `shouldParseTo` ["these", "are", "some", "words"]
+
+        it "should leave formatted numbers" $ do
+            "a number: 1,000.00" `shouldParseTo` ["a", "number", "1,000.00"]
+
+        it "should leave contractions" $ do
+            "doesn't disappear, y'all" `shouldParseTo` ["doesn't", "disappear", "y'all"]
 
 instance Arbitrary T.Text where
     arbitrary = T.pack `fmap` arbitrary

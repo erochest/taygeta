@@ -3,6 +3,7 @@
 
 module Text.Taygeta.Tokenizer
     ( tokenC
+    , numberFilter
     , tokenize
     , token
     , normalize
@@ -17,10 +18,12 @@ module Text.Taygeta.Tokenizer
 
 import           Control.Applicative
 import           Data.Attoparsec.Text
+import           Data.Char
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Attoparsec as CA
-import           Data.Char
+import qualified Data.Conduit.List as CL
 import qualified Data.List as L
+import           Data.Maybe (maybeToList)
 import           Data.Monoid
 import qualified Data.Text as T
 import qualified Filesystem.Path.CurrentOS as P
@@ -54,6 +57,53 @@ type TokenOffset = Int
 
 tokenC :: (Monad m, C.MonadThrow m) => C.GLInfConduit T.Text m TokenPos
 tokenC = CA.conduitParser token
+
+numberFilter :: Monad m => C.Conduit TokenPos m TokenPos
+numberFilter = loop []
+    where
+        loop seen = do
+            current' <- C.await
+            case current' of
+                Nothing                     -> do
+                    mapM_ C.yield  . maybeToList $ join seen
+                    return ()
+                Just current@(_, Token{..})
+                    | tokenIsNumber tokenText -> loop (current:seen)
+                    | isNumberSep tokenText && not (L.null seen) -> do
+                        next <- CL.peek
+                        if isNextNumber next
+                            then loop (current:seen)
+                            else do
+                                mapM_ C.yield . maybeToList $ join seen
+                                C.yield current
+                                loop []
+                    | otherwise -> do
+                        mapM_ C.yield . maybeToList $ join seen
+                        C.yield current
+                        loop []
+
+        tokenIsNumber = T.all isDigit
+
+        isNumberSep "." = True
+        isNumberSep "," = True
+        isNumberSep _   = False
+
+        isNextNumber (Just (_, Token{..})) | tokenIsNumber tokenText = True
+        isNextNumber _                                               = False
+
+        -- NB: It might be faster to pick the parts of the PositionRange apart
+        -- and pull the start and end directly from the first and last
+        -- elements, mconcat the tokens, and put the pair back together. But at
+        -- the moment this seems more straightforward.
+        join :: [TokenPos] -> Maybe TokenPos
+        join []   = Nothing
+        join [tp] = Just tp
+        join tps  = Just $ L.foldl1' join' tps
+            where
+                join' :: TokenPos -> TokenPos -> TokenPos
+                join' (CA.PositionRange _ prEnd, t2)
+                      (CA.PositionRange prStart _, t1) =
+                    (CA.PositionRange prStart prEnd, t1 <> t2)
 
 -- Entry functions
 

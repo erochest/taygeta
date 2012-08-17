@@ -11,7 +11,7 @@ import qualified Data.Conduit.List as CL
 import           Data.Monoid
 import qualified Data.List as L
 import qualified Data.Text as T
-import qualified Filesystem.Path.CurrentOS as P
+-- import qualified Filesystem.Path.CurrentOS as P
 import           Text.Taygeta.Tokenizer
 import           Test.Hspec
 import           Test.QuickCheck
@@ -53,12 +53,12 @@ main = hspec $ do
 
     describe "The Token type" $ do
         it "should mappend mempty x == x" $ property $ \t ->
-            let token = Token t $ normalize t
-            in  mappend mempty token == token
+            let tkn = Token t $ normalize t
+            in  mappend mempty tkn == tkn
 
         it "should mappend x mempty == x" $ property $ \t ->
-            let token = Token t $ normalize t
-            in  mappend token mempty == token
+            let tkn = Token t $ normalize t
+            in  mappend tkn mempty == tkn
 
         it "should mappend x (mappend y z) == mappend (mappend x y) z" $ property $ \(tx, ty, tz) ->
             let tokenx = Token tx $ normalize tx
@@ -67,8 +67,17 @@ main = hspec $ do
             in  mappend tokenx (mappend tokeny tokenz) == mappend (mappend tokenx tokeny) tokenz
 
     describe "The number filter" $ do
-        it "should join numbers with common number punctuation" $
-            pending "not implemented"
+        it "should join numbers with common number punctuation" $ do
+            let numbers = tokenC C.=$= numberFilter
+                shouldParseTo input expected =
+                    (input `shouldParseWith` numbers) expected
+            "1"            `shouldParseTo` ["1"]
+            "12"           `shouldParseTo` ["12"]
+            "199.99"       `shouldParseTo` ["199.99"]
+            "1,000"        `shouldParseTo` ["1,000"]
+            "1,234,567.90" `shouldParseTo` ["1,234,567.90"]
+            "1,22. "       `shouldParseTo` ["1,22", ".", " "]
+            "1,,23.,45."   `shouldParseTo` ["1", ",", ",", "23", ".", ",", "45", "."]
 
     describe "The English token filter" $ do
         it "should remove whitespace" $
@@ -103,6 +112,12 @@ runTokenConduit input conduit =
 
 getChars :: (Char -> Bool) -> String
 getChars = flip filter [minBound..maxBound]
+
+shouldParseWith :: T.Text
+                -> C.Conduit T.Text (ExceptionT Identity) TokenPos
+                -> [T.Text] -> Expectation
+shouldParseWith input filterC expected =
+   (map tokenText (runTokenConduit input filterC)) `shouldBe` expected
 
 -- Properties
 

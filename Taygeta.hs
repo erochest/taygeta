@@ -152,7 +152,8 @@ main = do
         $$ getDocumentText
         =$ tokenC
         =$ englishFilter
-        =$ whitespaceFilter
+        =$ numberFilter
+        =$ alphaNumericFilter
         =$ CL.map (fmap tokenText)
         =$ CU.zipSinks (CU.zipSinks freqs indexTokens) count
 

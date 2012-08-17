@@ -14,15 +14,16 @@ module Text.Taygeta.Tokenizer
     , Token(..)
     , TokenLoc(..)
     , TokenPos
+    , TextPos
     , FullToken
-    , CA.PositionRange
-    , CA.Position
+    , module Data.Conduit.Attoparsec
     ) where
 
 import           Control.Applicative
 import           Data.Attoparsec.Text
 import           Data.Char
 import qualified Data.Conduit as C
+import           Data.Conduit.Attoparsec (PositionRange(..), Position(..))
 import qualified Data.Conduit.Attoparsec as CA
 import qualified Data.Conduit.List as CL
 import qualified Data.List as L
@@ -52,6 +53,7 @@ data TokenLoc = TokenLoc
 
 type FullToken = (TokenLoc, Token)
 type TokenPos  = (CA.PositionRange, Token)
+type TextPos   = (CA.PositionRange, TokenType)
 
 type TokenSource = P.FilePath
 type TokenOffset = Int

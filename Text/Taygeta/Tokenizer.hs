@@ -5,6 +5,7 @@ module Text.Taygeta.Tokenizer
     ( tokenC
     , numberFilter
     , englishFilter
+    , contractionFilter
     , whitespaceFilter
     , tokenize
     , token
@@ -61,37 +62,50 @@ tokenC :: (Monad m, C.MonadThrow m) => C.GLInfConduit T.Text m TokenPos
 tokenC = CA.conduitParser token
 
 numberFilter :: Monad m => C.Conduit TokenPos m TokenPos
-numberFilter = loop []
+numberFilter = joinFilter (T.all isDigit . tokenText) (isNumberSep . tokenText)
     where
-        loop seen = do
-            current' <- C.await
-            case current' of
-                Nothing                     -> do
-                    mapM_ C.yield  . maybeToList $ join seen
-                    return ()
-                Just current@(_, Token{..})
-                    | tokenIsNumber tokenText -> loop (current:seen)
-                    | isNumberSep tokenText && not (L.null seen) -> do
-                        next <- CL.peek
-                        if isNextNumber next
-                            then loop (current:seen)
-                            else do
-                                mapM_ C.yield . maybeToList $ join seen
-                                C.yield current
-                                loop []
-                    | otherwise -> do
-                        mapM_ C.yield . maybeToList $ join seen
-                        C.yield current
-                        loop []
-
-        tokenIsNumber = T.all isDigit
-
         isNumberSep "." = True
         isNumberSep "," = True
         isNumberSep _   = False
 
-        isNextNumber (Just (_, Token{..})) | tokenIsNumber tokenText = True
-        isNextNumber _                                               = False
+whitespaceFilter :: Monad m => C.Conduit TokenPos m TokenPos
+whitespaceFilter = CL.filter (not . isWS)
+    where
+        isWS :: TokenPos -> Bool
+        isWS (_, Token{..}) | T.all isSpace tokenText     = True
+                            | T.all isSeparator tokenText = True
+                            | otherwise                   = False
+
+englishFilter :: Monad m => C.Conduit TokenPos m TokenPos
+englishFilter = contractionFilter
+
+contractionFilter :: Monad m => C.Conduit TokenPos m TokenPos
+contractionFilter = joinFilter (T.all isAlpha . tokenText) ((== "'") . tokenText)
+
+joinFilter :: Monad m
+           => (Token -> Bool) -> (Token -> Bool)
+           -> C.Conduit TokenPos m TokenPos
+joinFilter isBodyToken isSepToken = loop []
+    where
+        loop seen = do
+            current' <- C.await
+            case current' of
+                Nothing -> flush seen Nothing
+                Just current@(_, t)
+                    | isBodyToken t -> loop (current:seen)
+                    | isSepToken t && not (L.null seen) -> do
+                        next <- CL.peek
+                        if isNextBody next
+                            then loop (current:seen)
+                            else flush seen (Just current) >> loop []
+                    | otherwise -> flush seen (Just current) >> loop []
+
+        flush seen current = do
+            mapM_ C.yield . maybeToList $ join seen
+            maybe (return ()) C.yield current
+
+        isNextBody (Just (_, t)) = isBodyToken t
+        isNextBody _             = False
 
         -- NB: It might be faster to pick the parts of the PositionRange apart
         -- and pull the start and end directly from the first and last
@@ -106,17 +120,6 @@ numberFilter = loop []
                 join' (CA.PositionRange _ prEnd, t2)
                       (CA.PositionRange prStart _, t1) =
                     (CA.PositionRange prStart prEnd, t1 <> t2)
-
-whitespaceFilter :: Monad m => C.Conduit TokenPos m TokenPos
-whitespaceFilter = CL.filter (not . isWS)
-    where
-        isWS :: TokenPos -> Bool
-        isWS (_, Token{..}) | T.all isSpace tokenText     = True
-                            | T.all isSeparator tokenText = True
-                            | otherwise                   = False
-
-englishFilter :: Monad m => C.Conduit TokenPos m TokenPos
-englishFilter = CL.map id
 
 -- Entry functions
 

@@ -91,7 +91,8 @@ main = hspec $ do
             let english = tokenC C.=$= englishFilter C.=$= whitespaceFilter
                 shouldParseTo input expected =
                     (input `shouldParseWith` english) expected
-            "a, b, c" `shouldParseTo` ["a", ",", "b", ",", "c"]
+            "a, b, c"           `shouldParseTo` ["a", ",", "b", ",", "c"]
+            "a, don't tell me!" `shouldParseTo` [ "a", ",", "don't", "tell", "me", "!" ]
 
 instance Arbitrary T.Text where
     arbitrary = T.pack `fmap` arbitrary

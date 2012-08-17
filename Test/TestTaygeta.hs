@@ -79,12 +79,19 @@ main = hspec $ do
             "1,22. "       `shouldParseTo` ["1,22", ".", " "]
             "1,,23.,45."   `shouldParseTo` ["1", ",", ",", "23", ".", ",", "45", "."]
 
-    describe "The English token filter" $ do
-        it "should remove whitespace" $
-            pending "not implemented"
+    describe "The whitespace filter" $ do
+        it "should remove whitespace" $ do
+            let ws = tokenC C.=$= whitespaceFilter
+                shouldParseTo input expected =
+                    (input `shouldParseWith` ws) expected
+            "a b c" `shouldParseTo` ["a", "b", "c"]
 
-        it "join contractions" $
-            pending "not implemented"
+    describe "The English token filter" $ do
+        it "join contractions" $ do
+            let english = tokenC C.=$= englishFilter C.=$= whitespaceFilter
+                shouldParseTo input expected =
+                    (input `shouldParseWith` english) expected
+            "a, b, c" `shouldParseTo` ["a", ",", "b", ",", "c"]
 
 instance Arbitrary T.Text where
     arbitrary = T.pack `fmap` arbitrary

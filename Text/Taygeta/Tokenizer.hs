@@ -4,6 +4,8 @@
 module Text.Taygeta.Tokenizer
     ( tokenC
     , numberFilter
+    , englishFilter
+    , whitespaceFilter
     , tokenize
     , token
     , normalize
@@ -104,6 +106,17 @@ numberFilter = loop []
                 join' (CA.PositionRange _ prEnd, t2)
                       (CA.PositionRange prStart _, t1) =
                     (CA.PositionRange prStart prEnd, t1 <> t2)
+
+whitespaceFilter :: Monad m => C.Conduit TokenPos m TokenPos
+whitespaceFilter = CL.filter (not . isWS)
+    where
+        isWS :: TokenPos -> Bool
+        isWS (_, Token{..}) | T.all isSpace tokenText     = True
+                            | T.all isSeparator tokenText = True
+                            | otherwise                   = False
+
+englishFilter :: Monad m => C.Conduit TokenPos m TokenPos
+englishFilter = CL.map id
 
 -- Entry functions
 

@@ -5,48 +5,62 @@
 
 module Main where
 
-import           Data.Char
+import           Data.Conduit (($$), (=$))
+import qualified Data.Conduit as C
+import qualified Data.Conduit.Filesystem as CF
+import qualified Data.Conduit.List as CL
+import qualified Data.Conduit.Util as CU
 import           Data.Hashable
 import qualified Data.List as L
 import qualified Data.HashMap.Strict as M
+import           Data.Maybe
 import           Data.Monoid
 import           Data.Ord (comparing)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
--- import qualified Filesystem.Path.CurrentOS as FS
--- import           Shelly
+import qualified Filesystem.Path.CurrentOS as FS
 import           System.Environment
+import           Taygeta.Corpus
 import           Text.Printf
+import           Text.Taygeta.Tokenizer
 
-type Token         = T.Text
-type Location      = Int
-type Bigram        = (Token, Token)
+-- Types
+
+type Bigram        = (TokenType, TokenType)
 type FreqMap a     = M.HashMap a Int
-type InvertedIndex = M.HashMap Token [Location]
+type InvertedIndex = M.HashMap TokenType [PositionRange]
 
-tokenizeFile :: FilePath -> IO [(Location, Token)]
-tokenizeFile = fmap tokenize . TIO.readFile
+-- Conduits and Sinks
 
-tokenize :: T.Text -> [(Location, Token)]
-tokenize input = filter notEmpty . map (fmap normalize) $ tokenize' input 0
+bigrams :: Monad m => C.Conduit a m (a, a)
+bigrams = C.await >>= maybe (return ()) loop
     where
-        tokenize' inp i1 =
-            let (s, inp')  = T.span isSpace inp
-                loc        = i1 + T.length s
-                (t, inp'') = T.break isSpace inp'
-                loc'       = loc + T.length t
-            in  if T.null t
-                    then []
-                    else ((loc, t) : tokenize' inp'' loc')
+        loop prev = do
+            current' <- C.await
+            case current' of
+                Nothing      -> return ()
+                Just current -> do
+                    C.yield (prev, current)
+                    loop current
 
-        notEmpty = not . T.null . snd
+countFreqsC :: (Monad m, Ord a, Hashable a) => C.Sink a m (FreqMap a)
+countFreqsC = CL.fold inc M.empty
+    where inc m t = M.insertWith (+) t 1 m
 
-normalize :: Token -> Token
-normalize = T.filter isAlphaNum . T.toLower
+countBigrams :: Monad m => C.Sink TokenType m (FreqMap Bigram)
+countBigrams = bigrams =$ countFreqsC
 
-bigrams :: [a] -> [(a, a)]
-bigrams (a: (as@(b:_))) = (a, b) : bigrams as
-bigrams _               = []
+freqs :: Monad m => C.Sink TextPos m (FreqMap TokenType, FreqMap Bigram)
+freqs = CL.map snd =$ CU.zipSinks countFreqsC countBigrams
+
+indexTokens :: Monad m => C.Sink TextPos m InvertedIndex
+indexTokens = CL.fold alter M.empty
+    where alter m (l, t) = M.insertWith mappend t [l] m
+
+count :: Monad m => C.Sink a m Int
+count = CL.fold (\x _ -> x + 1) 0
+
+-- Utilities
 
 countFreqs :: (Ord a, Hashable a) => [a] -> FreqMap a
 countFreqs = L.foldl' inc M.empty
@@ -55,33 +69,45 @@ countFreqs = L.foldl' inc M.empty
 sortFreqs :: FreqMap k -> [(k, Int)]
 sortFreqs = L.reverse . L.sortBy (comparing snd) . M.toList
 
+-- Reports
+
 reportFreqs :: (Show a) => [(a, Int)] -> String
 reportFreqs = L.foldr format [] . zip [1..]
     where
         format (r, (a, f)) s =
             (printf "%4d. %20s %-5d %d\n" r (show a) f (r * f)) ++ s
 
-indexTokens :: [(Location, Token)] -> InvertedIndex
-indexTokens = L.foldl' alter M.empty
-    where alter m (l, t) = M.insertWith mappend t [l] m
-
-kwic :: T.Text -> Int -> InvertedIndex -> T.Text -> [T.Text]
-kwic text width index target =
-    map getContext . L.sort $ M.lookupDefault [] target index
+kwic :: [T.Text] -> Int -> InvertedIndex -> T.Text -> [T.Text]
+kwic textLines width index target =
+    map getContext
+        . catMaybes
+        . map findIndex
+        . L.sort
+        $ M.lookupDefault [] target index
     where
         csize :: Int
-        csize   = round $ (fromIntegral width / 2 :: Double) - (fromIntegral $ T.length target) / (2 :: Double)
+        csize = round $ (fromIntegral width / 2 :: Double)
+                      - (fromIntegral $ T.length target) / (2 :: Double)
 
         rmnl '\n' = ' '
         rmnl '\r' = ' '
         rmnl c    = c
 
-        text'   = T.map rmnl text
+        text = T.map rmnl $ T.concat textLines
+
+        lineLengths = M.fromList . zip [1..] . snd
+                    $ L.mapAccumL accumLengths 0 textLines
+        accumLengths sofar line = (len, sofar)
+            where len = sofar + T.length line
+
+        findIndex :: PositionRange -> Maybe Int
+        findIndex (PositionRange (Position line col) _) =
+            (+ col) `fmap` M.lookup line lineLengths
 
         -- Umm. There has to be a better way.
         getContext l =
             let start    = max 0 $ l - csize
-                c        = T.take width $ T.drop start text'
+                c        = T.take width $ T.drop start text
                 (p, c')  = T.breakOn " " c
                 (c'', _) = T.breakOnEnd " " c'
                 context  = (T.pack . take (T.length p) $ repeat ' ') `mappend` c''
@@ -98,21 +124,19 @@ header filename = do
     putStrLn filename
     putStrLn . take (length filename) $ repeat '='
 
-tokenFreqReport :: Int -> FreqMap Token -> IO ()
-tokenFreqReport count = putStrLn . reportFreqs . take count . sortFreqs
+tokenFreqReport :: Int -> FreqMap TokenType -> IO ()
+tokenFreqReport limit = putStrLn . reportFreqs . take limit . sortFreqs
 
-freqReport :: [Token] -> FreqMap Token -> IO ()
-freqReport tokens freqs = do
-    printf "Total tokens = %d\n" (length tokens)
-    printf "Total types  = %d\n" (M.size freqs)
+freqReport :: Int -> FreqMap TokenType -> IO ()
+freqReport tokenCount typeFreqs =  printf "Total tokens = %d\n" tokenCount
+                                >> printf "Total types  = %d\n" (M.size typeFreqs)
 
 freqFreqReport :: FreqMap Int -> IO ()
 freqFreqReport = 
     putStrLn . reportFreqs . L.sortBy (comparing fst) . M.toList
 
 bigramReport :: Int -> FreqMap Bigram -> IO ()
-bigramReport count = putStrLn . reportFreqs . take count . sortFreqs
-
+bigramReport limit = putStrLn . reportFreqs . take limit . sortFreqs
 
 main :: IO ()
 main = do
@@ -122,23 +146,24 @@ main = do
         (f:_)   -> return (f, Nothing)
         []      -> fail "You must provide a filename to process."
 
-    text <- TIO.readFile filename
-    let tokens  = tokenize text
-        tokens' = map snd tokens
 
-        freqs   = countFreqs tokens'
-        ffreqs  = countFreqs $ M.elems freqs
+    (((tfreqs, bfreqs), index), tokenCount) <- C.runResourceT $
+           CF.sourceFile (FS.decodeString filename)
+        $$ getDocumentText
+        =$ tokenC
+        =$ englishFilter
+        =$ whitespaceFilter
+        =$ CL.map (fmap tokenText)
+        =$ CU.zipSinks (CU.zipSinks freqs indexTokens) count
 
-        bigs    = bigrams tokens'
-        bfreqs  = countFreqs bigs
+    text <- T.lines `fmap` TIO.readFile filename
+    let ffreqs  = countFreqs $ M.elems tfreqs
 
-        index   = indexTokens tokens
-
-    header filename             >> nl
-    tokenFreqReport 20 freqs    >> nl
-    freqReport tokens' freqs    >> nl
-    freqFreqReport ffreqs       >> nl
-    bigramReport 20 bfreqs      >> nl
+    header filename              >> nl
+    tokenFreqReport 20 tfreqs    >> nl
+    freqReport tokenCount tfreqs >> nl
+    freqFreqReport ffreqs        >> nl
+    bigramReport 20 bfreqs       >> nl
 
     mapM_ (putStrLn . T.unpack) $ maybe [] (kwic text 78 index . T.pack) mtarget
 

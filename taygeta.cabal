@@ -48,6 +48,9 @@ Library
     , conduit              >= 0.5  && < 0.7
     , attoparsec-conduit   >= 0.5  && < 0.7
     , filesystem-conduit   >= 0.5  && < 0.7
+    , vector               >= 0.9
+    , vector-algorithms    >= 0.5
+    , statistics           >= 0.10
 
   if flag(development)
     cpp-options: -DDEVELOPMENT

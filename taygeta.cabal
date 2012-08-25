@@ -51,6 +51,8 @@ Library
     , vector               >= 0.9
     , vector-algorithms    >= 0.5
     , statistics           >= 0.10
+    , digamma              >= 0.1
+    -- , hmatrix              >= 0.14
 
   if flag(development)
     cpp-options: -DDEVELOPMENT

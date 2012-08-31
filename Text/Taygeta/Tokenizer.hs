@@ -8,6 +8,10 @@ module Text.Taygeta.Tokenizer
     , contractionFilter
     , whitespaceFilter
     , alphaNumericFilter
+    , StopList
+    , englishStopList
+    , stopListFilter
+    , englishStopListFilter
     , tokenize
     , token
     , normalize
@@ -27,6 +31,7 @@ import qualified Data.Conduit as C
 import           Data.Conduit.Attoparsec (PositionRange(..), Position(..))
 import qualified Data.Conduit.Attoparsec as CA
 import qualified Data.Conduit.List as CL
+import qualified Data.HashSet as S
 import qualified Data.List as L
 import           Data.Maybe (maybeToList)
 import           Data.Monoid
@@ -126,6 +131,36 @@ joinFilter isBodyToken isSepToken = loop []
                 join' (CA.PositionRange _ prEnd, t2)
                       (CA.PositionRange prStart _, t1) =
                     (CA.PositionRange prStart prEnd, t1 <> t2)
+
+-- Stop lists
+type StopList = S.HashSet T.Text
+
+englishStopList :: StopList
+englishStopList = S.fromList
+        [ "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you"
+        , "your", "yours", "yourself", "yourselves", "he", "him", "his"
+        , "himself", "she", "her", "hers", "herself", "it", "its", "itself"
+        , "they", "them", "their", "theirs", "themselves", "what", "which"
+        , "who", "whom", "this", "that", "these", "those", "am", "is", "are"
+        , "was", "were", "be", "been", "being", "have", "has", "had"
+        , "having", "do", "does", "did", "doing", "a", "an", "the", "and"
+        , "but", "if", "or", "because", "as", "until", "while", "of", "at"
+        , "by", "for", "with", "about", "against", "between", "into"
+        , "through", "during", "before", "after", "above", "below", "to"
+        , "from", "up", "down", "in", "out", "on", "off", "over", "under"
+        , "again", "further", "then", "once", "here", "there", "when"
+        , "where", "why", "how", "all", "any", "both", "each", "few", "more"
+        , "most", "other", "some", "such", "no", "nor", "not", "only", "own"
+        , "same", "so", "than", "too", "very", "s", "t", "can", "will", "just"
+        , "don't", "should", "now"
+        ]
+
+stopListFilter :: Monad m => StopList -> C.Conduit TokenPos m TokenPos
+stopListFilter stopList =
+    CL.filter (not . flip S.member stopList . tokenText . snd)
+
+englishStopListFilter :: Monad m => C.Conduit TokenPos m TokenPos
+englishStopListFilter = stopListFilter englishStopList
 
 -- Entry functions
 

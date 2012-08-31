@@ -117,6 +117,19 @@ main = hspec $ do
         it "should leave contractions" $ do
             "doesn't disappear, y'all" `shouldParseTo` ["doesn't", "disappear", "y'all"]
 
+    describe "The English stop-list filter" $ do
+        let conduit =     tokenC
+                    C.=$= numberFilter
+                    C.=$= englishFilter
+                    C.=$= alphaNumericFilter
+                    C.=$= englishStopListFilter
+            shouldParseTo input expected =
+                (input `shouldParseWith` conduit) expected
+
+        it "should remove common English words" $ do
+            "This, that, and the other" `shouldParseTo` []
+            "The Cat in the Hat"        `shouldParseTo` ["cat", "hat"]
+
 instance Arbitrary T.Text where
     arbitrary = T.pack `fmap` arbitrary
     shrink    = shrinkNothing

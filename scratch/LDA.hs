@@ -10,17 +10,40 @@
 
 module LDA where
 
+import           Control.Applicative
+import           Control.Exception.Base
+import           Control.Monad
+import           Control.Monad.Identity
+import           Control.Monad.Primitive
+import           Control.Monad.Trans.Resource
 import           Data.Array.Repa
 import           Data.Array.Repa.Eval
 import           Data.Array.Repa.Index
 import           Data.Array.Repa.Repr.Unboxed
 import           Data.Array.Repa.Algorithms.Matrix
 import           Data.Array.Repa.Algorithms.Randomish
-import           Debug.Trace
+import           Data.Conduit ((=$=), (=$), ($=), ($$))
+import qualified Data.Conduit as C
+import qualified Data.Conduit.Binary as CB
+import qualified Data.Conduit.Filesystem as CFS
+import qualified Data.Conduit.List as CL
+import qualified Data.Conduit.Text as CT
+import           Data.Hashable
+import qualified Data.HashMap.Strict as M
+import qualified Data.List as L
+import           Data.Taygeta.Freqs
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Unboxed.Mutable as VM
+import           Debug.Trace
+import qualified Filesystem.Path.CurrentOS as FS
 import           Numeric.Digamma (digamma)
-import           Test.Hspec
 import           Prelude hiding (map, zipWith)
+import           System.Directory (doesDirectoryExist, getDirectoryContents)
+import           Test.Hspec
+import           Text.Taygeta.Tokenizer
 
 main :: IO ()
 main = hspec $ do
@@ -94,22 +117,84 @@ type DArray r sh = Array r sh Double
 meanChangeThresh :: Double
 meanChangeThresh = 0.001
 
--- Need to transform (Array ... b) by projecting each value the times of the
+-- | Need to transform (Array ... b) by projecting each value the times of the
 -- number of columns in (Array ... a). After the projection, zipWith the two
 -- arrays over the function.
 broadcast :: Source r a => Array r DIM1 a -> Int -> Array D DIM2 a
 broadcast a cols = backpermute (extent a :. cols) broadcast' a
     where broadcast' (r :. _) = r
 
-rowwise :: (Source r1 a, Source r2 b)
-        => (a -> b -> c)
-        -> Array r1 DIM2 a
-        -> Array r2 DIM1 b
-        -> Array U DIM2 c
-rowwise f a b
-    | rowCount == size (extent b) = undefined
-    | otherwise                         = undefined
-    where rowCount = row (extent a)
+-- Parsing
+
+ldaTokenizeC :: (Monad m, C.MonadThrow m) => C.Conduit T.Text m T.Text
+ldaTokenizeC =   tokenC
+             =$= numberFilter
+             =$= englishFilter
+             =$= alphaNumericFilter
+             =$= englishStopListFilter
+             =$= CL.map (tokenText . snd)
+
+ldaTokenizeFile :: FS.FilePath -> IO [T.Text]
+ldaTokenizeFile input = C.runResourceT $
+       CB.sourceFile (FS.encodeString input)
+    $= CT.decode CT.utf8 
+    $$ ldaTokenizeC
+    =$ CL.consume
+
+ldaTokenizeText :: T.Text -> Either SomeException [T.Text]
+ldaTokenizeText input = runIdentity . runExceptionT $
+    CL.sourceList [input] $$ ldaTokenizeC =$ CL.consume
+
+-- Indexing/Vectoring
+
+type IndexMap a = M.HashMap a Int
+
+indexList :: (Ord a, Hashable a) => IndexMap a -> [a] -> IndexMap a
+indexList = L.foldl' (\idx x -> M.insertWith (flip const) x (M.size idx) idx)
+
+getRecursiveFiles :: FS.FilePath -> IO [FS.FilePath]
+getRecursiveFiles root = do
+    names' <- getDirectoryContents $ FS.encodeString root
+    let names = L.map ((root FS.</>) . FS.decodeString)
+              $ L.filter (`notElem` [".", ".."]) names'
+    paths  <- forM names $ \name -> do
+        isDirectory <- doesDirectoryExist (FS.encodeString name)
+        if isDirectory
+            then getRecursiveFiles name
+            else return [name]
+    return $ concat paths
+
+readContents :: FS.FilePath -> IO [(FS.FilePath, T.Text)]
+readContents dirname = do
+    files <- getRecursiveFiles dirname
+    forM files $ \fp ->
+        (,) fp <$> TIO.readFile (FS.encodeString fp)
+
+readFreqMaps :: FS.FilePath -> IO [(FS.FilePath, FreqMap T.Text)]
+readFreqMaps dirname = do
+    files <- getRecursiveFiles dirname
+    forM files $ \fp ->
+        fmap ((,) fp) $ C.runResourceT
+               $   CFS.sourceFile fp $= CT.decode CT.utf8
+               $$  ldaTokenizeC =$ countFreqsC
+
+makeFreqMaps :: T.Text -> Either SomeException (FreqMap T.Text)
+makeFreqMaps text = runIdentity . runExceptionT $
+    CL.sourceList [text] $$ ldaTokenizeC =$ countFreqsC
+
+makeTokenIndex :: [FreqMap T.Text] -> IndexMap T.Text
+makeTokenIndex = indexList M.empty . L.concatMap M.keys
+
+makeVector :: IndexMap T.Text -> FreqMap T.Text -> VU.Vector Double
+makeVector idx freqs = VU.create $ do
+    v <- VM.replicate (M.size idx) (0.0 :: Double)
+    foldM setToken v (M.keys freqs)
+    where
+        -- setToken :: VM.IOVector Double -> T.Text -> IO (VM.IOVector Double)
+        setToken v k = 
+            case M.lookup k idx of
+                Nothing -> return v
+                Just i  -> VM.write v i (1.0 :: Double) >> return v
 
 -- Finally, more core functions.
 
@@ -122,7 +207,22 @@ instance Dirichlet (Z :. Int) where
         where sa = digamma (sumAllS a)
 
 instance Dirichlet (Z :. Int :. Int) where
-    dirichletExpectationS a = map digamma a -^ (broadcast rowPsi cols)
+    dirichletExpectationS a = map digamma a -^ broadcast rowPsi cols
         where rowPsi = map digamma $ sumS a
               cols   = col (extent a)
+
+data LDA = LDA
+    { topicCount :: Int
+    , tokenIndex :: IndexMap T.Text
+    , alpha      :: Double
+    , eta        :: Double
+    , tau0       :: Double
+    , kappa      :: Double
+    } deriving (Show)
+
+initLda :: Int -> FS.FilePath -> Double -> Double -> Double -> Double -> IO LDA
+    -- ^ Number of topics
+initLda k dirname alpha eta tau0 kappa = do
+    idx <- (makeTokenIndex . L.map snd) <$> readFreqMaps dirname
+    return $ LDA k idx alpha eta tau0 kappa
 

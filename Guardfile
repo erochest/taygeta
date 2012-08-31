@@ -8,7 +8,8 @@ guard :shell, all_on_start: true do
   
   watch /scratch\/LDA.hs/ do |m|
     puts "\n\n\nCompiling LDA..."
-    `ghc --make -rtsopts -threaded scratch/LDA.hs && ./scratch/LDA`
+    # `ghc --make -rtsopts -threaded scratch/LDA.hs && ./scratch/LDA`
+    `runhaskell ./scratch/LDA.hs`
   end
 end
 

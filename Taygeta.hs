@@ -16,6 +16,7 @@ import qualified Data.HashMap.Strict as M
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Ord (comparing)
+import           Data.Taygeta.Freqs hiding (countFreqs)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Filesystem.Path.CurrentOS as FS
@@ -27,7 +28,6 @@ import           Text.Taygeta.Tokenizer
 -- Types
 
 type Bigram        = (TokenType, TokenType)
-type FreqMap a     = M.HashMap a Int
 type InvertedIndex = M.HashMap TokenType [PositionRange]
 
 -- Conduits and Sinks
@@ -42,10 +42,6 @@ bigrams = C.await >>= maybe (return ()) loop
                 Just current -> do
                     C.yield (prev, current)
                     loop current
-
-countFreqsC :: (Monad m, Ord a, Hashable a) => C.Sink a m (FreqMap a)
-countFreqsC = CL.fold inc M.empty
-    where inc m t = M.insertWith (+) t 1 m
 
 countBigrams :: Monad m => C.Sink TokenType m (FreqMap Bigram)
 countBigrams = bigrams =$ countFreqsC

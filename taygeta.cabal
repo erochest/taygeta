@@ -52,7 +52,8 @@ Library
     , vector-algorithms    >= 0.5
     , statistics           >= 0.10
     , digamma              >= 0.1
-    -- , hmatrix              >= 0.14
+    , repa                 >= 3.2
+    , repa-algorithms      >= 3.2
 
   if flag(development)
     cpp-options: -DDEVELOPMENT

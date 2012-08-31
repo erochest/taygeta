@@ -52,6 +52,7 @@ Library
     , vector               >= 0.9
     , vector-algorithms    >= 0.5
     , statistics           >= 0.10
+    , mwc-random           >= 0.12
     , digamma              >= 0.1
     , repa                 >= 3.2
     , repa-algorithms      >= 3.2

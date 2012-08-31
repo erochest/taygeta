@@ -42,6 +42,8 @@ import qualified Filesystem.Path.CurrentOS as FS
 import           Numeric.Digamma (digamma)
 import           Prelude hiding (map, zipWith)
 import           System.Directory (doesDirectoryExist, getDirectoryContents)
+import           System.Random.MWC
+import           System.Random.MWC.Distributions
 import           Test.Hspec
 import           Text.Taygeta.Tokenizer
 
@@ -49,12 +51,12 @@ main :: IO ()
 main = hspec $ do
     describe "broadcast" $ do
         it "should have a size of the input vector times the cols" $
-            let output :: Array U DIM2 Double
+            let output :: Matrix U
                 output = computeS $ broadcast eg1 4
             in  ((6 * 4) ==) . size . extent $ output
 
         it "should have the same number of rows as the length of the input vector" $
-            let output :: Array U DIM2 Double
+            let output :: Matrix U
                 output = computeS $ broadcast eg1 4
             in  (6 ==) . row . extent $ output
 
@@ -68,7 +70,7 @@ main = hspec $ do
                                 , 0.8,    0.8,    0.8,    0.8
                                 , 1.0,    1.0,    1.0,    1.0
                                 ]
-                actual   :: Array U DIM2 Double
+                actual   :: Matrix U
                 actual   = computeS $ broadcast eg1 4
             in  foldAllS (&&) True $ zipWith (==) expected actual
 
@@ -97,7 +99,7 @@ main = hspec $ do
 eg1 :: Array U DIM1 Double
 eg1 = fromListUnboxed (ix1 6) [0.0001, 0.2, 0.4, 0.6, 0.8, 1.0]
 
-eg2 :: Array U DIM2 Double
+eg2 :: Matrix U
 eg2 = computeS $ reshape (ix2 3 2) eg1
 
 margin :: Double
@@ -113,6 +115,7 @@ allInMargin aa ab =
 -- First some utility types, values, and functions.
 
 type DArray r sh = Array r sh Double
+type Matrix r    = Array r DIM2 Double
 
 meanChangeThresh :: Double
 meanChangeThresh = 0.001
@@ -214,6 +217,7 @@ instance Dirichlet (Z :. Int :. Int) where
 data LDA = LDA
     { topicCount :: Int
     , tokenIndex :: IndexMap T.Text
+    , docCount   :: Int
     , alpha      :: Double
     , eta        :: Double
     , tau0       :: Double
@@ -221,8 +225,26 @@ data LDA = LDA
     } deriving (Show)
 
 initLda :: Int -> FS.FilePath -> Double -> Double -> Double -> Double -> IO LDA
-    -- ^ Number of topics
 initLda k dirname alpha eta tau0 kappa = do
-    idx <- (makeTokenIndex . L.map snd) <$> readFreqMaps dirname
-    return $ LDA k idx alpha eta tau0 kappa
+    freqs <- L.map snd <$> readFreqMaps dirname
+    return $ LDA k (makeTokenIndex freqs) (L.length freqs) alpha eta tau0 kappa
+
+-- | The distributions returned are:
+--
+-- * random values over the distribution;
+-- * the Dirichlet expectation for the distribution; and
+-- * the exponential of of values in the Dir expectation.
+initDistributions :: LDA -> IO (Matrix U, Matrix D, Matrix D)
+initDistributions LDA{..} = do
+        l <- gammaList 100.0 (1.0 / 100.0) (w * topicCount)
+        let d  = fromListUnboxed (ix2 topicCount w) l
+            de = dirichletExpectationS d
+            e  = map exp de
+        return (d, de, e)
+    where w = M.size tokenIndex
+
+gammaList :: Double -> Double -> Int -> IO [Double]
+gammaList shape scale len = do
+    gen  <- create
+    replicateM len (gamma shape scale gen)
 

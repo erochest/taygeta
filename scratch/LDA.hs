@@ -14,14 +14,13 @@ import           Control.Applicative
 import           Control.Exception.Base
 import           Control.Monad
 import           Control.Monad.Identity
-import           Control.Monad.Primitive
 import           Control.Monad.Trans.Resource
 import           Data.Array.Repa
 import           Data.Array.Repa.Eval
-import           Data.Array.Repa.Index
+-- import           Data.Array.Repa.Index
 import           Data.Array.Repa.Repr.Unboxed
 import           Data.Array.Repa.Algorithms.Matrix
-import           Data.Array.Repa.Algorithms.Randomish
+-- import           Data.Array.Repa.Algorithms.Randomish
 import           Data.Conduit ((=$=), (=$), ($=), ($$))
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Binary as CB
@@ -34,10 +33,10 @@ import qualified Data.List as L
 import           Data.Taygeta.Freqs
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import qualified Data.Vector as V
+-- import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VM
-import           Debug.Trace
+-- import           Debug.Trace
 import qualified Filesystem.Path.CurrentOS as FS
 import           Numeric.Digamma (digamma)
 import           Prelude hiding (map, zipWith)
@@ -248,7 +247,7 @@ gammaList shape scale len = do
     replicateM len (gamma shape scale gen)
 
 e :: Source r Double => LDA -> Matrix r -> Matrix D -> Matrix D -> FS.FilePath -> IO ()
-e LDA{..} lmbd de deExp dirname = do
+e LDA{..} lmbd dirE dirEExp dirname = do
     freqs  <- readFreqMaps dirname
 
     -- batch variational distribution q(theta|gamma) for the mini-batch.
@@ -268,8 +267,8 @@ e LDA{..} lmbd de deExp dirname = do
             dg      = slice bgamma  sl
             dt      = slice bltheta sl
             de      = slice bexplth sl
-            db      = zipWith (*) (slice deExp sl) dv
-            phiNorm = (1e-100) + sumAllS (zipWith (*) de db)
+            db      = zipWith (*) (slice dirEExp sl) dv
+            phiNorm = 1e-100 + sumAllS (zipWith (*) de db)
 
         in  return ()
 

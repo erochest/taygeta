@@ -193,7 +193,6 @@ makeVector idx freqs = VU.create $ do
     v <- VM.replicate (M.size idx) (0.0 :: Double)
     foldM setToken v (M.keys freqs)
     where
-        -- setToken :: VM.IOVector Double -> T.Text -> IO (VM.IOVector Double)
         setToken v k = 
             case M.lookup k idx of
                 Nothing -> return v
@@ -234,17 +233,43 @@ initLda k dirname alpha eta tau0 kappa = do
 -- * random values over the distribution;
 -- * the Dirichlet expectation for the distribution; and
 -- * the exponential of of values in the Dir expectation.
-initDistributions :: LDA -> IO (Matrix U, Matrix D, Matrix D)
+initDistributions :: LDA -> IO (Matrix D, Matrix D, Matrix D)
 initDistributions LDA{..} = do
         l <- gammaList 100.0 (1.0 / 100.0) (w * topicCount)
         let d  = fromListUnboxed (ix2 topicCount w) l
             de = dirichletExpectationS d
-            e  = map exp de
-        return (d, de, e)
+            ex = map exp de
+        return (delay d, de, ex)
     where w = M.size tokenIndex
 
 gammaList :: Double -> Double -> Int -> IO [Double]
 gammaList shape scale len = do
     gen  <- create
     replicateM len (gamma shape scale gen)
+
+e :: Source r Double => LDA -> Matrix r -> Matrix D -> Matrix D -> FS.FilePath -> IO ()
+e LDA{..} lmbd de deExp dirname = do
+    freqs  <- readFreqMaps dirname
+
+    -- batch variational distribution q(theta|gamma) for the mini-batch.
+    let gextent = ix2 topicCount $ length freqs
+        gsize   = topicCount * length freqs
+    bgamma <-  delay . fromListUnboxed gextent
+           <$> gammaList 100.0 (1.0 / 100.0) gsize
+    let bltheta = dirichletExpectationS bgamma
+        bexplth = map exp bltheta
+        sstats  = delay . fromListUnboxed gextent $ L.replicate gsize (0.0 :: Double)
+        ifreqs  = Prelude.zip ([0..] :: [Int]) freqs
+
+    forM_ ifreqs $ \(i, (fp, fq)) ->
+        let dv      = fromUnboxed (ix1 (M.size tokenIndex))
+                                  (makeVector tokenIndex fq)
+            sl      = Any :. i :. All
+            dg      = slice bgamma  sl
+            dt      = slice bltheta sl
+            de      = slice bexplth sl
+            db      = zipWith (*) (slice deExp sl) dv
+            phiNorm = (1e-100) + sumAllS (zipWith (*) de db)
+
+        in  return ()
 

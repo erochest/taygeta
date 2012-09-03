@@ -9,6 +9,7 @@ import           Data.Conduit (($$), (=$))
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Filesystem as CF
 import qualified Data.Conduit.List as CL
+import qualified Data.Conduit.Text as CT
 import qualified Data.Conduit.Util as CU
 import           Data.Hashable
 import qualified Data.List as L
@@ -21,7 +22,6 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Filesystem.Path.CurrentOS as FS
 import           System.Environment
-import           Taygeta.Corpus
 import           Text.Printf
 import           Text.Taygeta.Tokenizer
 
@@ -145,7 +145,7 @@ main = do
 
     (((tfreqs, bfreqs), index), tokenCount) <- C.runResourceT $
            CF.sourceFile (FS.decodeString filename)
-        $$ getDocumentText
+        $$ CT.decode CT.utf8
         =$ tokenC
         =$ englishFilter
         =$ numberFilter

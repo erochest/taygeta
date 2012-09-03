@@ -1,46 +1,14 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
 
--- TODO add a parameter on Corpus for the type of data in the files.
 
 module Taygeta.Corpus
-    ( Document(..)
-    , chunkOn
+    ( chunkOn
     ) where
 
 
-import qualified Data.ByteString as B
+import           Control.Monad
 import qualified Data.Conduit as C
-import qualified Data.Conduit.List as CL
-import qualified Data.Conduit.Text as CT
 import qualified Data.Text as T
 
-
--- Sketching out things:
--- =====================
---
--- Corpus is no longer needed, because we'll let Data.Conduit.Attoparsec take
--- care of the position in the input stream. Moreover, if we only handle single
--- documents (or single token streams, at least), we can use closures to track
--- the current document and current document position.
---
--- Document is still needed, though, because it handles converting format x
--- into a Text stream.
---
-
--- Basic type and class definitions.
-
-class Document a where
-    getDocumentText :: (Monad m, C.MonadThrow m) => C.Conduit a m T.Text
-
-instance Document B.ByteString where
-    getDocumentText = CT.decode CT.utf8
-
-instance Document T.Text where
-    getDocumentText = CL.map id
 
 -- This chunks on a text, returning the prefix each time, and the next time
 -- concatenating the rest with the prefix from the next input.
@@ -57,6 +25,5 @@ chunkOn t = loop T.empty
                     loop next
 
         handleTail prefix | T.null prefix = return ()
-                          | otherwise     = C.leftover prefix >> return ()
-
+                          | otherwise     = void (C.leftover prefix)
 

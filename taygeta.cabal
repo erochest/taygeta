@@ -52,11 +52,11 @@ Library
 
   if flag(development)
     cpp-options: -DDEVELOPMENT
-    ghc-options: -w -Wall -fhpc
+    ghc-options: -w -Wall
   else
     if flag(profiling)
       cpp-options: -DDEVELOPMENT
-      ghc-options: -w -Wall -fhpc
+      ghc-options: -w -Wall
     else
       ghc-options: -Wall -fwarn-tabs -funbox-strict-fields
                    -fno-warn-orphans -fno-warn-unused-do-bind
@@ -79,11 +79,11 @@ Executable taygeta
 
   if flag(development)
     cpp-options: -DDEVELOPMENT
-    ghc-options: -w -Wall -fhpc
+    ghc-options: -w -Wall
   else
     if flag(profiling)
       cpp-options: -DDEVELOPMENT
-      ghc-options: -w -Wall -rtsopts -fhpc
+      ghc-options: -w -Wall -rtsopts
     else
       ghc-options: -Wall -fwarn-tabs -funbox-strict-fields
                    -fno-warn-orphans -fno-warn-unused-do-bind -rtsopts
@@ -106,7 +106,7 @@ Test-Suite test-taygeta
     , HUnit                >= 1.0  && <= 2.0
     , QuickCheck           >= 2.4  && <= 2.5
     , unordered-containers >= 0.2  && < 0.4
-  ghc-options:    -Wall -rtsopts -fhpc
+  ghc-options:    -Wall -rtsopts
 
 Source-Repository head
   type:     git

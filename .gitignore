@@ -3,3 +3,5 @@ dist
 dist_taygeta/
 hpc/
 *.tix
+*.o
+*.hi

@@ -29,6 +29,7 @@ Library
       Data.Taygeta.Freqs
     , Taygeta.Corpus
     , Text.Taygeta.Tokenizer
+    , Text.Taygeta.Types
 
   Other-modules:
 

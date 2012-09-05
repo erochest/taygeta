@@ -9,8 +9,7 @@ import qualified Data.Conduit as C
 import qualified Data.Conduit.List as CL
 import           Data.Hashable
 import qualified Data.HashMap.Strict as M
-
-type FreqMap a     = M.HashMap a Int
+import           Text.Taygeta.Types
 
 countFreqs :: (Ord a, Hashable a) => [a] -> FreqMap a
 countFreqs = M.fromListWith (+) . flip zip (repeat 1)

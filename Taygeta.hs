@@ -1,8 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- Some playing with things as I read through *Foundations of Statistical
--- Natural Language Processing* by Christopher Manning and Hinrich Shütze.
-
+-- | Some playing with things as I read through /Foundations of Statistical
+-- Natural Language Processing/ by Christopher Manning and Hinrich Shütze.
 module Main where
 
 import           Data.Conduit (($$), (=$))
@@ -27,11 +26,16 @@ import           Text.Taygeta.Tokenizer
 
 -- Types
 
+-- | A pair of tokens.
 type Bigram        = (TokenType, TokenType)
+
+-- | This maps between tokens and a list of positions in the document.
 type InvertedIndex = M.HashMap TokenType [PositionRange]
 
 -- Conduits and Sinks
 
+-- | Input a sequence of items and convert it into pairs of items occuring next
+-- to each other in the sequence.
 bigrams :: Monad m => C.Conduit a m (a, a)
 bigrams = C.await >>= maybe (return ()) loop
     where
@@ -43,47 +47,74 @@ bigrams = C.await >>= maybe (return ()) loop
                     C.yield (prev, current)
                     loop current
 
+-- | Consume a sequence into a map of bigram frequencies.
 countBigrams :: Monad m => C.Sink TokenType m (FreqMap Bigram)
 countBigrams = bigrams =$ countFreqsC
 
+-- | Consume a sequence into maps of token and bigram frequencies.
 freqs :: Monad m => C.Sink TextPos m (FreqMap TokenType, FreqMap Bigram)
 freqs = CL.map snd =$ CU.zipSinks countFreqsC countBigrams
 
+-- | Consume a sequence into an inverted index.
 indexTokens :: Monad m => C.Sink TextPos m InvertedIndex
 indexTokens = CL.fold alter M.empty
     where alter m (l, t) = M.insertWith mappend t [l] m
 
+-- Consume a sequence returning the number of items in the sequence.
 count :: Monad m => C.Sink a m Int
 count = CL.fold (\x _ -> x + 1) 0
 
 -- Utilities
 
+-- | Generate frequencies for the items in a list.
 countFreqs :: (Ord a, Hashable a) => [a] -> FreqMap a
 countFreqs = L.foldl' inc M.empty
     where inc m t = M.insertWith (+) t 1 m
 
+-- | Sort the frequencies in reverse descending order.
 sortFreqs :: FreqMap k -> [(k, Int)]
 sortFreqs = L.reverse . L.sortBy (comparing snd) . M.toList
 
 -- Reports
 
-reportFreqs :: (Show a) => [(a, Int)] -> String
+-- | Generate a report string of the frequencies.
+--
+-- The report has these columns:
+--
+-- * Rank;
+-- * Item;
+-- * Frequency; and
+-- * Rank * Frequency.
+reportFreqs :: (Show a)
+            => [(a, Int)]
+            -- ^ The sorted frequency list to generate the report for.
+            -> String
+            -- ^ The report output as a 'String'.
 reportFreqs = L.foldr format [] . zip [1..]
     where
         format (r, (a, f)) s =
-            (printf "%4d. %20s %-5d %d\n" r (show a) f (r * f)) ++ s
+            printf "%4d. %20s %-5d %d\n" r (show a) f (r * f) ++ s
 
-kwic :: [T.Text] -> Int -> InvertedIndex -> T.Text -> [T.Text]
+-- | Generate a keyword in context (KWIC) view of an item in a text.
+kwic :: [T.Text]
+     -- ^ The input document as a list of 'T.Text'.
+     -> Int
+     -- ^ The width of the KWICs.
+     -> InvertedIndex
+     -- ^ The `InvertedIndex' mapping the 'TokenType's to lists of 'PositionRange'.
+     -> T.Text
+     -- ^ The item to find and highlight in the KWIC.
+     -> [T.Text]
+     -- ^ The output as a list of 'T.Text'.
 kwic textLines width index target =
     map getContext
-        . catMaybes
-        . map findIndex
+        . mapMaybe findIndex
         . L.sort
         $ M.lookupDefault [] target index
     where
         csize :: Int
         csize = round $ (fromIntegral width / 2 :: Double)
-                      - (fromIntegral $ T.length target) / (2 :: Double)
+                      -  fromIntegral (T.length target) / (2 :: Double)
 
         rmnl '\n' = ' '
         rmnl '\r' = ' '
@@ -111,28 +142,36 @@ kwic textLines width index target =
                     then context
                     else (T.pack . take (abs $ l - csize) $ repeat ' ') `mappend` context
 
-
+-- | Write a newline to STDOUT.
 nl :: IO ()
 nl = putStrLn ""
 
+-- | Write a header for a file name to STDOUT.
 header :: String -> IO ()
 header filename = do
     putStrLn filename
     putStrLn . take (length filename) $ repeat '='
 
-tokenFreqReport :: Int -> FreqMap TokenType -> IO ()
-tokenFreqReport limit = putStrLn . reportFreqs . take limit . sortFreqs
+-- | Write a token frequency report to STDOUT.
+report :: Show a
+       => Int
+       -- ^ The number of items to include in the report.
+       -> FreqMap a
+       -- ^ The 'FreqMap' to report on.
+       -> IO ()
+report limit = putStrLn . reportFreqs . take limit . sortFreqs
 
+-- | Write a summary of tokens and types to STDOUT.
 freqReport :: Int -> FreqMap TokenType -> IO ()
 freqReport tokenCount typeFreqs =  printf "Total tokens = %d\n" tokenCount
                                 >> printf "Total types  = %d\n" (M.size typeFreqs)
 
+-- | Write a frequency report to STDOUT.
+--
+-- This reports on the number of items that occur for each given frequency.
 freqFreqReport :: FreqMap Int -> IO ()
 freqFreqReport = 
     putStrLn . reportFreqs . L.sortBy (comparing fst) . M.toList
-
-bigramReport :: Int -> FreqMap Bigram -> IO ()
-bigramReport limit = putStrLn . reportFreqs . take limit . sortFreqs
 
 main :: IO ()
 main = do
@@ -157,10 +196,10 @@ main = do
     let ffreqs  = countFreqs $ M.elems tfreqs
 
     header filename              >> nl
-    tokenFreqReport 20 tfreqs    >> nl
+    report 20 tfreqs             >> nl
     freqReport tokenCount tfreqs >> nl
     freqFreqReport ffreqs        >> nl
-    bigramReport 20 bfreqs       >> nl
+    report 20 bfreqs             >> nl
 
     mapM_ (putStrLn . T.unpack) $ maybe [] (kwic text 78 index . T.pack) mtarget
 

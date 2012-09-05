@@ -1,26 +1,38 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | This has the base tokenizer, both as a parser and 'C.Conduit', and
+-- a series of filters that can be composed on top of the bases.
+--
+-- The primary interface is the 'C.Conduit' interface, and most of the filters
+-- are for that.
 module Text.Taygeta.Tokenizer
-    ( tokenC
+    ( -- * Data Types
+      -- ** Base Types
+      TokenType
+    , Token(..)
+      -- ** Types and Locations
+    , FullToken
+    , TokenPos
+    , TextPos
+    , TokenLoc(..)
+      -- * Conduits
+    , tokenC
+      -- ** Conduit Filters
     , numberFilter
     , englishFilter
     , contractionFilter
     , whitespaceFilter
     , alphaNumericFilter
+      -- ** Stop List Filters
     , StopList
     , englishStopList
     , stopListFilter
     , englishStopListFilter
+      -- * Parsers and Functions
     , tokenize
-    , token
     , normalize
-    , TokenType
-    , Token(..)
-    , TokenLoc(..)
-    , TokenPos
-    , TextPos
-    , FullToken
+    , token
     , module Data.Conduit.Attoparsec
     ) where
 
@@ -40,9 +52,12 @@ import           Text.Taygeta.Types
 
 -- Conduits
 
+-- | This breaks input 'T.Text' up into a stream of 'TokenPos'.
 tokenC :: (Monad m, C.MonadThrow m) => C.GLInfConduit T.Text m TokenPos
 tokenC = CA.conduitParser token
 
+-- | This groups tokens that comprise numbers with commas and periods into
+-- a single 'Token'.
 numberFilter :: Monad m => C.Conduit TokenPos m TokenPos
 numberFilter = joinFilter (T.all isDigit . tokenText) (isNumberSep . tokenText)
     where
@@ -50,6 +65,7 @@ numberFilter = joinFilter (T.all isDigit . tokenText) (isNumberSep . tokenText)
         isNumberSep "," = True
         isNumberSep _   = False
 
+-- | This removes whitespace tokens from the input stream.
 whitespaceFilter :: Monad m => C.Conduit TokenPos m TokenPos
 whitespaceFilter = CL.filter (not . isWS)
     where
@@ -58,17 +74,30 @@ whitespaceFilter = CL.filter (not . isWS)
                             | T.all isSeparator tokenText = True
                             | otherwise                   = False
 
+-- | This groups tokens into English-y words.
+--
+-- Currently, this just groups /alpha-numeric/, /single quote/, and
+-- /alpha-numeric/ tokens into a single token.
 englishFilter :: Monad m => C.Conduit TokenPos m TokenPos
 englishFilter = contractionFilter
 
+-- | This groups /alpha-numeric/, /single quote/, and /alpha-numeric/ tokens
+-- into a single 'Token'.
 contractionFilter :: Monad m => C.Conduit TokenPos m TokenPos
 contractionFilter = joinFilter (T.all isAlpha . tokenText) ((== "'") . tokenText)
 
+-- | This filters out non-alphanumeric tokens.
 alphaNumericFilter :: Monad m => C.Conduit TokenPos m TokenPos
 alphaNumericFilter = CL.filter (T.any isAlphaNum . tokenText . snd)
 
+-- | This groups tokens according to the output of two predicates.
 joinFilter :: Monad m
-           => (Token -> Bool) -> (Token -> Bool)
+           => (Token -> Bool)
+           -- ^ The 'isBodyToken' predicate tests whether the 'Token' is a body
+           -- 'Token'. One or more body 'Token's are joined.
+           -> (Token -> Bool)
+           -- ^ The 'isSepToken' predicate tests whether the 'Token' is
+           -- a separator. Only a single separator is accepted at one time.
            -> C.Conduit TokenPos m TokenPos
 joinFilter isBodyToken isSepToken = loop []
     where
@@ -107,6 +136,9 @@ joinFilter isBodyToken isSepToken = loop []
                     (CA.PositionRange prStart prEnd, t1 <> t2)
 
 -- Stop lists
+
+-- | This is a set of English stop words. This is taken from the data for NLTK
+-- (<http://nltk.org/>).
 englishStopList :: StopList
 englishStopList = S.fromList
         [ "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you"
@@ -127,21 +159,38 @@ englishStopList = S.fromList
         , "don't", "should", "now"
         ]
 
+-- | This takes a 'StopList' and constructs a 'C.Conduit' filtering out
+-- 'Token's from the list.
 stopListFilter :: Monad m => StopList -> C.Conduit TokenPos m TokenPos
 stopListFilter stopList =
     CL.filter (not . flip S.member stopList . tokenText . snd)
 
+-- | This is a pre-composed English stop list filter.
 englishStopListFilter :: Monad m => C.Conduit TokenPos m TokenPos
 englishStopListFilter = stopListFilter englishStopList
 
 -- Entry functions
 
-tokenize :: TokenSource -> TokenOffset -> T.Text -> Either String [FullToken]
+-- | This tokenizes an input 'T.Text' and either returns an error message
+-- 'String' or a list of 'FullToken'.
+tokenize :: TokenSource
+         -- ^ The source for the 'T.Text'.
+         -> TokenOffset
+         -- ^ The initial offset of the input in the source.
+         -> T.Text
+         -- ^ The input.
+         -> Either String [FullToken]
+         -- ^ An error 'String' or the list of tokens.
 tokenize source offset = parseOnly (tokenList source offset)
 
 -- Parser
 
-tokenList :: TokenSource -> TokenOffset -> Parser [FullToken]
+-- ^ A parser over a list of 'Token's.
+tokenList :: TokenSource
+          -- ^ The source for the input.
+          -> TokenOffset
+          -- ^ The offset of the input in the source.
+          -> Parser [FullToken]
 tokenList source offset =
     (snd . L.mapAccumL locate (TokenLoc source offset)) <$> many token
     where
@@ -151,53 +200,67 @@ tokenList source offset =
             , (loc, t)
             )
 
+-- | This parsers a single 'Token'.
+--
+-- This breaks up the input without throwing anything away.
 token :: Parser Token
-token = (
-        spaceToken
-    <|> alphaToken
-    <|> digitToken
-    <|> punctToken
-    <|> markToken
-    <|> symbolToken
-    <|> separatorToken
-    <|> anyToken
-    )
+token =   spaceToken
+      <|> alphaToken
+      <|> digitToken
+      <|> punctToken
+      <|> markToken
+      <|> symbolToken
+      <|> separatorToken
+      <|> anyToken
 
+-- | This constructs a parser from a predicate. The 'Parser' accepts a span of
+-- the input and produces a 'Token'.
 token' :: (Char -> Bool) -> Parser Token
 token' p = mkToken <$> takeWhile1 p
 
+-- | This constructs a parser from a predicate. The 'Parser' accepts a single characters and produces a 'Token'.
 tchar :: (Char -> Bool) -> Parser Token
 tchar p = mkToken . T.singleton <$> satisfy p
 
+-- | This parses a string of white space.
 spaceToken :: Parser Token
 spaceToken = token' isSpace
 
+-- | This parses a string of alphabetic characters.
 alphaToken :: Parser Token
 alphaToken = token' isAlpha
 
+-- | This parses a string of numeric characters.
 digitToken :: Parser Token
 digitToken = token' isDigit
 
+-- | This parses a single punctuation character.
 punctToken :: Parser Token
 punctToken = tchar isPunctuation
 
+-- | This parses a string of marks.
 markToken :: Parser Token
 markToken = token' isMark
 
+-- | This parses a string of symbols.
 symbolToken :: Parser Token
 symbolToken = token' isSymbol
 
+-- | This parses a string of separator characters.
 separatorToken :: Parser Token
 separatorToken = token' isSeparator
 
+-- | This parses a single character of any type.
 anyToken :: Parser Token
 anyToken = mkToken . T.singleton <$> anyChar
 
+-- | This takes some text and wraps it in a 'Token'.
 mkToken :: T.Text -> Token
 mkToken t = Token t $ normalize t
 
 -- Utilities
 
+-- | This normalizes the raw token text.
 normalize :: T.Text -> T.Text
 normalize = T.toLower
 

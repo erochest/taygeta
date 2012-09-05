@@ -1,6 +1,8 @@
 
 # Taygeta
 
+[![Build Status](https://secure.travis-ci.org/erochest/taygeta.png)](http://travis-ci.org/erochest/taygeta)
+
 From [Wikipedia][wikipedia]:
 
 > Taygeta is a triple star system in the constellation Taurus and a member of

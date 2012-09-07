@@ -83,17 +83,22 @@ sortFreqs = L.reverse . L.sortBy (comparing snd) . M.toList
 --
 -- * Rank;
 -- * Item;
--- * Frequency; and
--- * Rank * Frequency.
+-- * Frequency;
+-- * Rank * Frequency; and
+-- * Term Frequency (tc(t, d) / max { tc(w, d) : w ∈ d }).
 reportFreqs :: (Show a)
-            => [(a, Int)]
+            => Int
+            -- ^ The maximum frequency of any item in the stream.
+            -> [(a, Int)]
             -- ^ The sorted frequency list to generate the report for.
             -> String
             -- ^ The report output as a 'String'.
-reportFreqs = L.foldr format [] . zip [1..]
+reportFreqs maxFreq = L.foldr format [] . zip [1..]
     where
         format (r, (a, f)) s =
-            printf "%4d. %20s %-5d %d\n" r (show a) f (r * f) ++ s
+            let tf :: Double
+                tf = fromIntegral f / fromIntegral maxFreq
+            in  printf "%4d. %20s %-5d %6d %.4f\n" r (show a) f (r * f) tf ++ s
 
 -- | Generate a keyword in context (KWIC) view of an item in a text.
 kwic :: [T.Text]
@@ -159,7 +164,11 @@ report :: Show a
        -> FreqMap a
        -- ^ The 'FreqMap' to report on.
        -> IO ()
-report limit = putStrLn . reportFreqs . take limit . sortFreqs
+report limit fqs
+    | M.null fqs = return ()
+    | otherwise  =
+        putStrLn . reportFreqs mf . take limit $ sortFreqs fqs
+    where mf = L.maximum $ M.elems fqs
 
 -- | Write a summary of tokens and types to STDOUT.
 freqReport :: Int -> FreqMap TokenType -> IO ()
@@ -170,8 +179,11 @@ freqReport tokenCount typeFreqs =  printf "Total tokens = %d\n" tokenCount
 --
 -- This reports on the number of items that occur for each given frequency.
 freqFreqReport :: FreqMap Int -> IO ()
-freqFreqReport = 
-    putStrLn . reportFreqs . L.sortBy (comparing fst) . M.toList
+freqFreqReport fqs
+    | M.null fqs = return ()
+    | otherwise  =
+        putStrLn . reportFreqs mf . L.sortBy (comparing fst) $ M.toList fqs
+    where mf = L.maximum $ M.elems fqs
 
 main :: IO ()
 main = do

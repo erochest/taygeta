@@ -3,6 +3,7 @@ module Taygeta.Tokenizer
     , parserTokenizer
     , sexprTokenizer
     , charTokenizer
+    , lineTokenizer
     ) where
 
 
@@ -27,3 +28,6 @@ sexprTokenizer = parseTokens sexpr
 
 charTokenizer :: Tokenizer
 charTokenizer = map T.singleton . T.unpack
+
+lineTokenizer :: Tokenizer
+lineTokenizer = T.lines

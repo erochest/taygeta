@@ -60,3 +60,8 @@ spec = do
         it "should break a string into characters." $
             charTokenizer "abcdefgh ijklm" `shouldBe`
                 ["a", "b", "c", "d", "e", "f", "g", "h", " ", "i", "j", "k", "l", "m"]
+
+    describe "lineTokenizer" $
+        it "should break a string into lines." $
+            lineTokenizer "abc\ndef\nhijk lm\n" `shouldBe`
+                ["abc", "def", "hijk lm"]

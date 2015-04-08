@@ -19,20 +19,20 @@ import           Taygeta.Parser.Utils
 import           Taygeta.Types
 
 
-splitTokenizer :: Tokenizer
+splitTokenizer :: PlainTokenizer
 splitTokenizer = T.split isSpace
 
-parserTokenizer :: Parser T.Text -> Tokenizer
+parserTokenizer :: Parser T.Text -> PlainTokenizer
 parserTokenizer p = parseTokens (many (alt p anyChar) <* takeText)
 
-sexprTokenizer :: Tokenizer
+sexprTokenizer :: PlainTokenizer
 sexprTokenizer = parseTokens sexpr
 
-charTokenizer :: Tokenizer
-charTokenizer = map T.singleton . T.unpack
+charTokenizer :: Tokenizer Char
+charTokenizer = T.unpack
 
-lineTokenizer :: Tokenizer
+lineTokenizer :: PlainTokenizer
 lineTokenizer = T.lines
 
-treebankTokenizer :: Tokenizer
+treebankTokenizer :: PlainTokenizer
 treebankTokenizer = treebank

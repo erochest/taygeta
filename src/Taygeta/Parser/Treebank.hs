@@ -18,7 +18,7 @@ import           Taygeta.Parser.Utils
 import           Taygeta.Types
 
 
-treebank :: Tokenizer
+treebank :: PlainTokenizer
 treebank = T.words
          . foldRepl (stage2 ++ contractions)
          . flip (joinEnds ' ') ' '

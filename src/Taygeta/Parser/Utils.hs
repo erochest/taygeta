@@ -19,7 +19,7 @@ import qualified Data.Text            as T
 import           Taygeta.Types
 
 
-parseTokens :: Parser [T.Text] -> Tokenizer
+parseTokens :: Parser [T.Text] -> PlainTokenizer
 parseTokens p = fold . parseOnly (p <* endOfInput)
 
 alt :: Parser a -> Parser b -> Parser a

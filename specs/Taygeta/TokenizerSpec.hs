@@ -58,8 +58,7 @@ spec = do
 
     describe "charTokenizer" $
         it "should break a string into characters." $
-            charTokenizer "abcdefgh ijklm" `shouldBe`
-                ["a", "b", "c", "d", "e", "f", "g", "h", " ", "i", "j", "k", "l", "m"]
+            charTokenizer "abcdefgh ijklm" `shouldBe` "abcdefgh ijklm"
 
     describe "lineTokenizer" $
         it "should break a string into lines." $

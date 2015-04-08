@@ -55,3 +55,8 @@ spec = do
             sexprTokenizer "a (b (c d)) e)" `shouldBe` []
         it "should handle the NLTK docstring examples." $
             sexprTokenizer "(a b (c d)) e f (g)" `shouldBe` ["(a b (c d))", "e", "f", "(g)"]
+
+    describe "charTokenizer" $
+        it "should break a string into characters." $
+            charTokenizer "abcdefgh ijklm" `shouldBe`
+                ["a", "b", "c", "d", "e", "f", "g", "h", " ", "i", "j", "k", "l", "m"]

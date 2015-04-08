@@ -2,6 +2,7 @@ module Taygeta.Tokenizer
     ( splitTokenizer
     , parserTokenizer
     , sexprTokenizer
+    , charTokenizer
     ) where
 
 
@@ -23,3 +24,6 @@ parserTokenizer p = parseTokens (many (alt p anyChar) <* takeText)
 
 sexprTokenizer :: Tokenizer
 sexprTokenizer = parseTokens sexpr
+
+charTokenizer :: Tokenizer
+charTokenizer = map T.singleton . T.unpack

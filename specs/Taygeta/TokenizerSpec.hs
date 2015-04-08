@@ -42,3 +42,16 @@ spec = do
                 ["red", "rides"]
             parserTokenizer rWords "red pony rides the moors" `shouldBe`
                 ["rides"]
+
+    describe "sexprTokenizer" $ do
+        it "should break inputs on whitespace." $
+            sexprTokenizer "a b c d e" `shouldBe` ["a", "b", "c", "d", "e"]
+        it "should return parenthesized items as a group." $
+            sexprTokenizer "a (b c d) e" `shouldBe` ["a", "(b c d)", "e"]
+        it "should handle nested parentheses." $
+            sexprTokenizer "(a (b (c) d)) e" `shouldBe` ["(a (b (c) d))", "e"]
+        it "should return nothing if the parentheses aren't balanced." $ do
+            sexprTokenizer "(a (b (c d)) e" `shouldBe` []
+            sexprTokenizer "a (b (c d)) e)" `shouldBe` []
+        it "should handle the NLTK docstring examples." $
+            sexprTokenizer "(a b (c d)) e f (g)" `shouldBe` ["(a b (c d))", "e", "f", "(g)"]

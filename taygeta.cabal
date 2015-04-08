@@ -16,7 +16,8 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Taygeta.Parser.Utils
+  exposed-modules:     Taygeta.Parser.Sexpr
+                     , Taygeta.Parser.Utils
                      , Taygeta.Tokenizer
                      , Taygeta.Types
   -- other-modules:       

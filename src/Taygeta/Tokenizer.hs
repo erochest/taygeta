@@ -4,15 +4,17 @@ module Taygeta.Tokenizer
     , sexprTokenizer
     , charTokenizer
     , lineTokenizer
+    , treebankTokenizer
     ) where
 
 
 import           Control.Applicative
 import           Data.Attoparsec.Text
-import           Data.Char            (isSpace)
-import qualified Data.Text            as T
+import           Data.Char               (isSpace)
+import qualified Data.Text               as T
 
 import           Taygeta.Parser.Sexpr
+import           Taygeta.Parser.Treebank
 import           Taygeta.Parser.Utils
 import           Taygeta.Types
 
@@ -31,3 +33,6 @@ charTokenizer = map T.singleton . T.unpack
 
 lineTokenizer :: Tokenizer
 lineTokenizer = T.lines
+
+treebankTokenizer :: Tokenizer
+treebankTokenizer = treebank

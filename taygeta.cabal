@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Taygeta.Parser.Sexpr
+                     , Taygeta.Parser.Treebank
                      , Taygeta.Parser.Utils
                      , Taygeta.Tokenizer
                      , Taygeta.Types
@@ -24,6 +25,7 @@ library
   -- other-extensions:    
   build-depends:       base >=4.7 && <5
                      , attoparsec
+                     , bifunctors
                      , repa
                      , system-filepath
                      , text

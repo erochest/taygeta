@@ -6,6 +6,7 @@ module Taygeta.Parser.Utils
     , isParen
     , isWord
     , anyCharP
+    , joinEnds
     ) where
 
 
@@ -39,3 +40,6 @@ isParen :: Char -> Bool
 isParen '(' = True
 isParen ')' = True
 isParen _   = False
+
+joinEnds :: Char -> T.Text -> Char -> T.Text
+joinEnds a b c = a `T.cons` b `T.snoc` c

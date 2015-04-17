@@ -89,3 +89,12 @@ spec = do
                  "Please", "buy", "me", "two", "of", "them.", "Thanks", "."]
             treebankTokenizer "They'll save and invest more." `shouldBe`
                 ["They", "'ll", "save", "and", "invest", "more", "."]
+
+    describe "regexTokenizer" $ do
+        it "should identify everything that matches a regex." $
+            let tokenizer = regexTokenizer "\\p{L}[\\p{L}\\p{P}]*\\p{L}"
+            in  tokenizer "Good muffins cost $3.88\n\
+                          \in New York.  Please buy me\n\
+                          \two of them.\nThanks.\n" `shouldBe`
+                ["Good", "muffins", "cost", "in", "New", "York",
+                 "Please", "buy", "me", "two", "of", "them", "Thanks"]

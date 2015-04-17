@@ -5,13 +5,16 @@ module Taygeta.Tokenizer
     , charTokenizer
     , lineTokenizer
     , treebankTokenizer
+    , regexTokenizer
     ) where
 
 
 import           Control.Applicative
 import           Data.Attoparsec.Text
 import           Data.Char               (isSpace)
+import           Data.Maybe
 import qualified Data.Text               as T
+import           Data.Text.ICU
 
 import           Taygeta.Parser.Sexpr
 import           Taygeta.Parser.Treebank
@@ -36,3 +39,8 @@ lineTokenizer = T.lines
 
 treebankTokenizer :: PlainTokenizer
 treebankTokenizer = treebank
+
+regexTokenizer :: T.Text -> PlainTokenizer
+regexTokenizer re = mapMaybe (group 0) . findAll re'
+    where
+        re' = regex [UnicodeWord] re

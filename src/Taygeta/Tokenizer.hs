@@ -41,6 +41,4 @@ treebankTokenizer :: PlainTokenizer
 treebankTokenizer = treebank
 
 regexTokenizer :: T.Text -> PlainTokenizer
-regexTokenizer re = mapMaybe (group 0) . findAll re'
-    where
-        re' = regex [UnicodeWord] re
+regexTokenizer re = mapMaybe (group 0) . findAll (regex' [UnicodeWord] re)

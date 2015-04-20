@@ -6,6 +6,7 @@ module Taygeta.Tokenizer
     , lineTokenizer
     , treebankTokenizer
     , regexTokenizer
+    , regexTokenizer'
     ) where
 
 
@@ -41,4 +42,7 @@ treebankTokenizer :: PlainTokenizer
 treebankTokenizer = treebank
 
 regexTokenizer :: T.Text -> PlainTokenizer
-regexTokenizer re = mapMaybe (group 0) . findAll (regex' [UnicodeWord] re)
+regexTokenizer re = regexTokenizer' (regex [UnicodeWord] re)
+
+regexTokenizer' :: Regex -> PlainTokenizer
+regexTokenizer' re = mapMaybe (group 0) . findAll re

@@ -51,7 +51,7 @@ configure: clean
 	${CABAL} configure ${FLAGS}
 
 deps: clean
-	${CABAL} install --only-dependencies --allow-newer ${FLAGS}
+	${CABAL} install --only-dependencies ${FLAGS}
 	make configure
 
 build:

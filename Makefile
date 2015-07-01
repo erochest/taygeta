@@ -44,8 +44,11 @@ distclean: clean
 build:
 	stack build
 
+watch:
+	ghcid "--command=stack ghci"
+
 restart: distclean init build
 
 rebuild: clean build
 
-.PHONY: all init test run clean distclean build rebuild hlint
+.PHONY: all init test run clean distclean build rebuild lint watch

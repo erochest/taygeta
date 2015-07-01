@@ -7,6 +7,9 @@ all: init test docs package
 
 init: stack.yaml
 
+stack.yaml:
+	stack init --prefer-nightly
+
 test:
 	stack test
 

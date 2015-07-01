@@ -1,23 +1,17 @@
 
 SRC=$(shell find src -name '*.hs')
 
-CABAL=cabal
 FLAGS=--enable-tests
 
 all: init test docs package
 
-init:
-	${CABAL} sandbox init
-	make deps
+init: stack.yaml
 
-test: build
-	${CABAL} test --test-option=--color
-
-specs: build
-	./dist/build/taygeta-specs/taygeta-specs
+test:
+	stack test
 
 run:
-	${CABAL} run
+	stack exec -- taygeta
 
 
 # docs:
@@ -36,29 +30,22 @@ run:
 # prep and push
 
 tags: ${SRC}
-	hasktags --ctags *.hs src
+	codex update
 
-hlint:
-	hlint *.hs src specs
+lint:
+	hlint src specs
 
 clean:
-	${CABAL} clean
+	stack clean
+	codex cache clean
 
 distclean: clean
-	${CABAL} sandbox delete
-
-configure: clean
-	${CABAL} configure ${FLAGS}
-
-deps: clean
-	${CABAL} install --only-dependencies ${FLAGS}
-	make configure
 
 build:
-	${CABAL} build
+	stack build
 
 restart: distclean init build
 
-rebuild: clean configure build
+rebuild: clean build
 
-.PHONY: all init test run clean distclean configure deps build rebuild hlint
+.PHONY: all init test run clean distclean build rebuild hlint

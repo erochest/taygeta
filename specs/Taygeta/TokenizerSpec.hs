@@ -4,7 +4,6 @@
 module Taygeta.TokenizerSpec where
 
 
-import           Control.Applicative
 import           Data.Attoparsec.Text
 import qualified Data.Attoparsec.Text as A
 import           Data.Char            (isSpace)
@@ -28,7 +27,7 @@ spec = do
             splitTokenizer "The red pony! It rides the Moors!" `shouldBe`
                 ["The", "red", "pony!", "It", "rides", "the", "Moors!"]
 
-    describe "parserTokenizer" $ do
+    describe "parserTokenizer" $
         it "should return all matches of a given parser." $ do
             let space' = T.singleton <$> space
                 rWords = T.cons <$> (space *> char 'r') <*> A.takeWhile (not . isSpace)

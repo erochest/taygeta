@@ -9,9 +9,8 @@ module Taygeta.Tokenizer
 
 import           Control.Applicative
 import           Data.Attoparsec.Text
-import           Data.Char               (isSpace)
-import           Data.Maybe
-import qualified Data.Text               as T
+import           Data.Char            (isSpace)
+import qualified Data.Text            as T
 
 import           Taygeta.Parser.Sexpr
 import           Taygeta.Parser.Utils

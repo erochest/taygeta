@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                taygeta
-version:             0.1.0.0
+version:             0.1.1.0
 synopsis:            NLP
 description:         A library for NLP and text mining.
 license:             Apache-2.0
@@ -28,8 +28,6 @@ library
                      , repa
                      , system-filepath
                      , text
-                     , text-icu
-                     , text-regex-replace
                      , vector
   hs-source-dirs:      src
   default-language:    Haskell2010

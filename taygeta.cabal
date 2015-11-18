@@ -37,6 +37,7 @@ test-suite taygeta-specs
   ghc-options:         -threaded -rtsopts
   hs-source-dirs:      specs
   main-is:             Specs.hs
+  other-modules:       Taygeta.TokenizerSpec
   build-depends:         base
                        , taygeta
                        , QuickCheck
